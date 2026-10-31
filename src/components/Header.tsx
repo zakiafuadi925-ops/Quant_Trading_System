@@ -8,16 +8,31 @@ import {
   Grid3X3, 
   BookOpen, 
   Sparkles,
-  ShieldAlert
+  RefreshCw,
+  SlidersHorizontal,
+  Zap
 } from 'lucide-react';
+import { LiveTicker } from '../services/cryptoApi';
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  btcPrice: number;
+  ticker: LiveTicker;
+  isFetching: boolean;
+  onRefresh: () => void;
+  onOpenFeedModal: () => void;
+  isAutoSync: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, btcPrice }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  ticker,
+  isFetching,
+  onRefresh,
+  onOpenFeedModal,
+  isAutoSync
+}) => {
   const tabs = [
     { id: 'overview', label: 'Market & Backtest', icon: TrendingUp },
     { id: 'astronacci', label: 'Astronacci & Apogee', icon: Orbit },
@@ -29,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, btcPric
   ];
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-50">
+    <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
       {/* Top Banner with live stats */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 border-b border-slate-800/60">
@@ -52,20 +67,52 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, btcPric
             </div>
           </div>
 
-          {/* Right Market Status Bar */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-3 font-mono">
-              <span className="text-xs font-semibold text-slate-400">BTC/USDT</span>
-              <span className="text-sm font-bold text-emerald-400">${btcPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                +2.61%
+          {/* Right Market Status Bar & Auto Fetch Controls */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Ticker Card */}
+            <div 
+              onClick={onOpenFeedModal}
+              className="cursor-pointer hover:border-slate-700 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2.5 font-mono transition-colors group"
+              title="Click to configure Automated Data Feed"
+            >
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
+                <span className="text-xs font-semibold text-slate-400 group-hover:text-slate-200">
+                  {ticker.symbol}
+                </span>
+              </div>
+              
+              <span className="text-sm font-bold text-emerald-400">
+                ${ticker.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+
+              <span className={`text-[11px] font-medium px-1.5 py-0.2 rounded ${
+                ticker.change24h >= 0 
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              }`}>
+                {ticker.change24h >= 0 ? '+' : ''}{ticker.change24h.toFixed(2)}%
               </span>
             </div>
 
-            <div className="hidden md:flex items-center gap-2 bg-slate-950/60 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-300 font-medium">Keras v5.2.1 Ready</span>
-            </div>
+            {/* Quick Fetch Button */}
+            <button
+              onClick={onRefresh}
+              disabled={isFetching}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors disabled:opacity-50"
+              title="Fetch latest BTC price from Binance"
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
+            </button>
+
+            {/* Feed Config Modal Trigger */}
+            <button
+              onClick={onOpenFeedModal}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-colors"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Feed</span>
+            </button>
           </div>
         </div>
 
