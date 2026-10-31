@@ -15,8 +15,22 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-export const PortfolioTab: React.FC = () => {
-  const [assets, setAssets] = useState<AssetAllocation[]>(INITIAL_PORTFOLIO_ASSETS);
+interface PortfolioTabProps {
+  btcPrice?: number;
+}
+
+export const PortfolioTab: React.FC<PortfolioTabProps> = ({ btcPrice }) => {
+  const [assets, setAssets] = useState<AssetAllocation[]>(() => {
+    if (!btcPrice) return INITIAL_PORTFOLIO_ASSETS;
+    return INITIAL_PORTFOLIO_ASSETS.map((a) => (a.symbol === 'BTC' ? { ...a, price: btcPrice } : a));
+  });
+
+  // Keep BTC price synchronized when live feed updates
+  React.useEffect(() => {
+    if (btcPrice) {
+      setAssets((prev) => prev.map((a) => (a.symbol === 'BTC' ? { ...a, price: btcPrice } : a)));
+    }
+  }, [btcPrice]);
   const [selectedAsset, setSelectedAsset] = useState<string>('BTC');
   const [rebalanceExecuted, setRebalanceExecuted] = useState<boolean>(false);
 

@@ -78,7 +78,7 @@ export function App() {
         {activeTab === 'astronacci' && <AstroCycleTab candles={BTC_CANDLES} />}
         {activeTab === 'lstm' && <LstmModelTab candles={BTC_CANDLES} />}
         {activeTab === 'monte-carlo' && <MonteCarloTab currentBtcPrice={ticker.price} />}
-        {activeTab === 'portfolio' && <PortfolioTab />}
+        {activeTab === 'portfolio' && <PortfolioTab btcPrice={ticker.price} />}
         {activeTab === 'grid' && <GridTradingTab initialPrice={ticker.price} />}
         {activeTab === 'modules' && <ModulesTab />}
       </main>
