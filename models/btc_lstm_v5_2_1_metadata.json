@@ -1,0 +1,31 @@
+{
+  "version": "5.2.1",
+  "features": [
+    "return_1d",
+    "return_3d",
+    "return_7d",
+    "range_pct",
+    "body_pct",
+    "volume_change",
+    "ema_9_ratio",
+    "ema_21_ratio",
+    "ema_50_ratio",
+    "ema_200_ratio",
+    "rsi_14",
+    "macd_pct",
+    "macd_signal_pct",
+    "macd_hist_pct",
+    "atr_pct",
+    "bb_position",
+    "bb_width"
+  ],
+  "lookback": 60,
+  "train_ratio": 0.7,
+  "validation_ratio": 0.15,
+  "test_ratio": 0.15,
+  "target": "next_day_return",
+  "signal_threshold": 0.015,
+  "fee_rate": 0.001,
+  "model_path": "models\\btc_lstm_v5_2_1.keras",
+  "scaler_path": "scalers\\btc_scaler_v5_2_1.npz"
+}

@@ -1,0 +1,22 @@
+{
+    "succesful": [
+        {
+            "symbols": "BTCUSDT",
+            "records": 60
+        },
+        {
+            "symbols": "ETHUSDT",
+            "records": 60
+        },
+        {
+            "symbols": "SOLUSDT",
+            "records": 60
+        },
+        {
+            "symbols": "BNBUSDT",
+            "records": 60
+        }
+    ],
+    "failed": [],
+    "timestamp": "2026-05-09T11:33:25.783716"
+}

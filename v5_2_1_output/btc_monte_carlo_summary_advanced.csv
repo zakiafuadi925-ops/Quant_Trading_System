@@ -1,0 +1,2 @@
+model,starting_price,horizon_days,n_paths,terminal_mean,terminal_median,terminal_min,terminal_max,prob_loss,prob_gain_20,prob_gain_50
+GARCH+HMM,85263.08,28,10000,89709.96007976682,89290.11940391836,44573.403842493746,147599.20075371338,0.3682,0.157,0.0038

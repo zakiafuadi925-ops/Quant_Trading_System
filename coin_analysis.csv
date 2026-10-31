@@ -1,0 +1,7 @@
+coin_symbol,coin_name,price_usd,volume_24h_usd,market_cap_approx_usd,change_7d_pct,from_ath_pct,category,note_for_experiment
+ZEC,Zcash,1180.0,999828857,High,-13.44,(Privacy / Shielded),Stable high-cap; good for baseline comparison
+ASTER,Aster,0.68,76130690,Mid,-6.8,-,(Perpetual DEX),Mid-cap; volatile; needs careful threshold tuning
+ARB,Arbitrum,0.16,618789682,Mid,-92.76,-,(Layer-2 / Rollup),Deep drawdown from ATH; test max drawdown metric
+LIGHTER,Lighter,4.45,109948198,1.1B,-6.8,-,(Perpetual DEX),Market cap ~1.1B; recent -6.8% 7-day decline
+TAO,Bittensor,259.06,221361644,Mid,-13.44,-,(AI x Crypto),Crossover category; test feature interference (Astronomi)
+LINK,Chainlink,12.5,247640000,9.36B,-77.01,-,(Oracle / DeFi),Large-cap; long history; good for Buy & Hold control

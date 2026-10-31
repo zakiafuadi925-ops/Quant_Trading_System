@@ -1,0 +1,19 @@
+{
+    "BTCUSDT": {
+        "price": 80672.19,
+        "timestamp": "2026-05-09 20:00:25"
+    },
+    "ETHUSDT": {
+        "price": 2326.5,
+        "timestamp": "2026-05-09 20:00:25"
+    },
+    "BNBUSDT": {
+        "price": 649.71,
+        "timestamp": "2026-05-09 20:00:25"
+    },
+    "SOLUSDT": {
+        "price": 93.11,
+        "timestamp": "2026-05-09 20:00:25"
+    },
+    "collected_at": "2026-05-09T20:00:25.005287"
+}

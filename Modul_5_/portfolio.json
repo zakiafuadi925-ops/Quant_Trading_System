@@ -1,0 +1,503 @@
+{
+    "holdings": {
+        "BTC-USD": {
+            "amount": 4.499999999999998,
+            "total_cost": 269999.99999999994,
+            "avg_entry": 60000.00000000001
+        },
+        "ETH-USD": {
+            "amount": 30,
+            "total_cost": 60000,
+            "avg_entry": 2000.0
+        },
+        "SOL-USD": {
+            "amount": 150,
+            "total_cost": 22500,
+            "avg_entry": 150.0
+        }
+    },
+    "transactions": [
+        {
+            "timestamp": "2026-05-04T09:49:58.562643",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T09:49:58.566233",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T09:49:58.568798",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T09:49:58.576242",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T09:58:07.411189",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T09:58:07.412843",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T09:58:07.414510",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T09:58:07.416193",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:00:03.343690",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:00:03.345363",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:00:03.346274",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:00:03.347182",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:04:06.493401",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:04:06.495878",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:04:06.497315",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:04:06.500181",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:04:25.098753",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:04:25.103906",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:04:25.106942",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:04:25.109443",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:05:32.779966",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:05:32.781433",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:05:32.783325",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:05:32.785322",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:07:28.600664",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:07:28.608824",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:07:28.612321",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:07:28.616794",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:07:35.540618",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:07:35.551404",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:07:35.554082",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:07:35.556210",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:11:01.009256",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:11:01.011741",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:11:01.013739",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:11:01.016186",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:29:46.614631",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:29:46.616659",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:29:46.618284",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:29:46.619905",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:31:29.556693",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:31:29.558564",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:31:29.560800",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:31:29.562856",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:34:49.796234",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:34:49.799422",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:34:49.801914",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:34:49.805772",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:38:22.304150",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:38:22.315237",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:38:22.323591",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:38:22.327018",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:39:22.889998",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:39:22.892347",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:39:22.894266",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:39:22.896243",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        },
+        {
+            "timestamp": "2026-05-04T10:42:14.270557",
+            "symbol": "BTC-USD",
+            "type": "buy",
+            "amount": 0.5,
+            "price": 60000,
+            "total": 30000.0
+        },
+        {
+            "timestamp": "2026-05-04T10:42:14.273999",
+            "symbol": "ETH-USD",
+            "type": "buy",
+            "amount": 2,
+            "price": 2000,
+            "total": 4000
+        },
+        {
+            "timestamp": "2026-05-04T10:42:14.276250",
+            "symbol": "BTC-USD",
+            "type": "sell",
+            "amount": 0.2,
+            "price": 78000,
+            "total": 15600.0
+        },
+        {
+            "timestamp": "2026-05-04T10:42:14.278512",
+            "symbol": "SOL-USD",
+            "type": "buy",
+            "amount": 10,
+            "price": 150,
+            "total": 1500
+        }
+    ],
+    "created_at": "2026-05-04T09:49:58.562606",
+    "last_updated": "2026-05-04T10:42:14.278550"
+}

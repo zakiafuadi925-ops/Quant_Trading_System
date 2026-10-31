@@ -1,0 +1,2 @@
+starting_price,mu_daily,sigma_daily,annualized_vol,annualized_drift,horizon_days,n_paths,terminal_mean,terminal_median,terminal_min,terminal_max,prob_loss,prob_gain_20,prob_gain_50
+85263.08,0.004608631363762357,0.021816186009946708,0.41679764849086776,4.377106734217463,28,10000,97020.71487424156,96287.93945301854,60548.77083551644,148548.91437106158,0.1433,0.2996,0.0056

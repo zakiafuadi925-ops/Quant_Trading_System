@@ -1,0 +1,18 @@
+import os
+import pandas as pd
+
+# Menentukan lokasi root (folder utama Research_Bitcoin)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+# Jika script ada di dalam subfolder 'scripts/', gunakan:
+# BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Definisi jalur folder
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+MODEL_DIR = os.path.join(BASE_DIR, 'models')
+SCALER_DIR = os.path.join(BASE_DIR, 'scalers')
+
+# Contoh meload data
+df = pd.read_csv(os.path.join(DATA_DIR, 'bitcoin_research.csv'))
+
+# Contoh meload model
+# model = load_model(os.path.join(MODEL_DIR, 'model_astronacci_v4.keras'))

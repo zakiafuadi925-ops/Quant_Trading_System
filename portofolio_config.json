@@ -1,0 +1,51 @@
+{
+    "owner": "MyTradingBot",
+    "exchange": "Binance",
+    "created": "2026-04-19 01:09:13",
+    "assests": {
+        "BTC": {
+            "target_allocation": 0.4,
+            "min_holding": 0.01,
+            "max_holding": 1.0
+        },
+        "ETH": {
+            "target_allocation": 0.35,
+            "min_holding": 0.1,
+            "max_holding": 10.0
+        },
+        "SOL": {
+            "target_allocation": 0.15,
+            "min_holding": 1,
+            "max_holding": 100
+        },
+        "USDT": {
+            "target_allocation": 0.1,
+            "min_holding": 100,
+            "max_holding": 10000
+        }
+    },
+    "alert": [
+        {
+            "type": "price",
+            "coin": "BTC",
+            "condition": "below",
+            "value": 45000
+        },
+        {
+            "type": "price",
+            "coin": "BTC",
+            "condition": "below",
+            "value": 55000
+        },
+        {
+            "type": "portofolio",
+            "condition": "total_below",
+            "value": 9000
+        }
+    ],
+    "risk_settings": {
+        "max_drawdown": 0.2,
+        "stop_loss": 0.1,
+        "take_profit": 0.25
+    }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Bitcoin Research & Quantitative Trading Lab",
+  "description": "Comprehensive cryptocurrency quantitative research and trading system featuring Astronacci cycle strategies, LSTM deep learning predictions, Monte Carlo simulations, strategy backtesting, multi-asset portfolio rebalancing, and spot grid trading.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
