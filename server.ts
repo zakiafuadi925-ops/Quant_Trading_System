@@ -142,6 +142,32 @@ async function startServer() {
     });
   });
 
+  // 1.5. Live Klines (Candlestick) endpoint with timeframe support
+  app.get('/api/crypto/klines', async (req, res) => {
+    const interval = String(req.query.interval || '1d');
+    const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 60));
+
+    try {
+      const r = await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=${limit}`, 4000);
+      if (r.ok) {
+        const raw = await r.json();
+        const candles = raw.map((k: any) => ({
+          timestamp: new Date(k[0]).toISOString().split('T')[0] + (interval === '1h' || interval === '4h' ? ' ' + new Date(k[0]).toISOString().split('T')[1].slice(0, 5) : ''),
+          open: parseFloat(k[1]),
+          high: parseFloat(k[2]),
+          low: parseFloat(k[3]),
+          close: parseFloat(k[4]),
+          volume: parseFloat(k[5])
+        }));
+        return res.json({ success: true, source: 'Binance Live Klines', interval, candles });
+      }
+    } catch (e) {
+      console.warn('[Proxy] Klines fetch failed:', (e as Error).message);
+    }
+
+    return res.json({ success: false, message: 'Fallback to client klines' });
+  });
+
   // 2. Multi-coin prices endpoint
   app.get('/api/crypto/multi', async (_req, res) => {
     try {

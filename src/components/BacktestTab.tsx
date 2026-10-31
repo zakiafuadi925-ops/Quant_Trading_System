@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CandleData } from '../types';
+import { CandlestickChart } from './CandlestickChart';
 import { 
   Play, 
   RotateCcw, 
@@ -11,21 +12,30 @@ import {
   Sliders, 
   Clock, 
   ChevronRight,
-  Info
+  Info,
+  Download,
+  Orbit,
+  BrainCircuit,
+  Activity,
+  Layers,
+  ShieldAlert
 } from 'lucide-react';
 
 interface BacktestTabProps {
   candles: CandleData[];
+  currentPrice?: number;
 }
 
-export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
+export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice }) => {
   const [initialCapital, setInitialCapital] = useState<number>(1000);
   const [feeRate, setFeeRate] = useState<number>(0.001); // 0.1%
   const [threshold, setThreshold] = useState<number>(0.51);
-  const [selectedOverlay, setSelectedOverlay] = useState<'all' | 'ema' | 'bb'>('all');
+  const [strategyModel, setStrategyModel] = useState<'lstm' | 'astronacci' | 'ema_cross' | 'rsi_reversal' | 'bb_breakout'>('lstm');
+  const [stopLossPct, setStopLossPct] = useState<number>(0); // 0 = disabled
+  const [takeProfitPct, setTakeProfitPct] = useState<number>(0); // 0 = disabled
   const [filterTradeType, setFilterTradeType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
 
-  // Run backtesting logic faithfully reproducing run_backtest from backtest_from_python.py
+  // Run backtesting logic faithfully reproducing quantitative backtest engines
   const backtestResults = useMemo(() => {
     let balance = initialCapital;
     let position = 0; // BTC held
@@ -41,6 +51,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
       id: string;
       date: string;
       type: 'BUY' | 'SELL';
+      reason: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT';
       price: number;
       units: number;
       value: number;
@@ -61,35 +72,71 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
     const firstPrice = candles[0]?.close || 1;
 
     candles.forEach((c, idx) => {
-      // Signal logic: direction probability > threshold
-      const prob = c.directionProb ?? 0.5;
-      const isBuySignal = prob >= threshold;
-      const currentPrice = c.close;
+      const p = c.close;
+      let isBuySignal = false;
+      let isSellSignal = false;
 
+      // Strategy signal logic
+      if (strategyModel === 'lstm') {
+        const prob = c.directionProb ?? 0.5;
+        isBuySignal = prob >= threshold;
+        isSellSignal = prob < threshold;
+      } else if (strategyModel === 'astronacci') {
+        // Buy during Apogee window or retrograde with oversold/recovery RSI
+        isBuySignal = Boolean(c.isApogee && (c.rsi < 48 || c.macdHist > 0));
+        isSellSignal = Boolean(!c.isApogee && c.rsi > 65);
+      } else if (strategyModel === 'ema_cross') {
+        // Golden Cross EMA 9 / EMA 21
+        isBuySignal = c.ema9 > c.ema21;
+        isSellSignal = c.ema9 < c.ema21;
+      } else if (strategyModel === 'rsi_reversal') {
+        // Mean Reversion: Buy oversold < 35, Sell overbought > 65
+        isBuySignal = c.rsi < 35;
+        isSellSignal = c.rsi > 65;
+      } else if (strategyModel === 'bb_breakout') {
+        // Bollinger Breakout / Squeeze
+        isBuySignal = c.close > c.bbMid && c.bbPosition > 0.5;
+        isSellSignal = c.close < c.bbMid;
+      }
+
+      // Check Stop Loss & Take Profit if currently in position
+      let exitReason: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' = 'SIGNAL';
+      if (position > 0) {
+        if (stopLossPct > 0 && p <= lastBuyPrice * (1 - stopLossPct / 100)) {
+          isSellSignal = true;
+          exitReason = 'STOP_LOSS';
+        } else if (takeProfitPct > 0 && p >= lastBuyPrice * (1 + takeProfitPct / 100)) {
+          isSellSignal = true;
+          exitReason = 'TAKE_PROFIT';
+        }
+      }
+
+      // Execution
       if (isBuySignal && position === 0) {
         // Buy full balance
-        const buyUnits = (balance * (1 - feeRate)) / currentPrice;
+        const buyUnits = (balance * (1 - feeRate)) / p;
         position = buyUnits;
         balance = 0;
-        lastBuyPrice = currentPrice;
+        lastBuyPrice = p;
 
         trades.push({
           id: `trade-${idx}-buy`,
           date: c.timestamp,
           type: 'BUY',
-          price: currentPrice,
+          reason: 'SIGNAL',
+          price: p,
           units: buyUnits,
-          value: buyUnits * currentPrice,
+          value: buyUnits * p,
           balanceAfter: 0,
           pnl: 0,
           pnlPct: 0
         });
-      } else if (!isBuySignal && position > 0) {
+      } else if (isSellSignal && position > 0) {
         // Sell all position
-        const sellProceeds = position * currentPrice * (1 - feeRate);
+        const sellProceeds = position * p * (1 - feeRate);
         const costBasis = position * lastBuyPrice;
         const tradePnl = sellProceeds - costBasis;
-        const tradePnlPct = ((currentPrice - lastBuyPrice) / lastBuyPrice) * 100;
+        const tradePnlPct = ((p - lastBuyPrice) / lastBuyPrice) * 100;
 
         if (tradePnl > 0) {
           winningTrades++;
@@ -104,7 +151,8 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
           id: `trade-${idx}-sell`,
           date: c.timestamp,
           type: 'SELL',
-          price: currentPrice,
+          reason: exitReason,
+          price: p,
           units: position,
           value: sellProceeds,
           balanceAfter: balance,
@@ -115,7 +163,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
         position = 0;
       }
 
-      const currentEquity = balance + position * currentPrice;
+      const currentEquity = balance + position * p;
       if (currentEquity > peakEquity) {
         peakEquity = currentEquity;
       }
@@ -124,11 +172,11 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
         maxDrawdown = currentDD;
       }
 
-      const buyHold = (currentPrice / firstPrice) * initialCapital;
+      const buyHold = (p / firstPrice) * initialCapital;
 
       curve.push({
         date: c.timestamp,
-        close: currentPrice,
+        close: p,
         strategyEquity: currentEquity,
         buyHoldEquity: buyHold,
         signal: isBuySignal ? 1 : 0,
@@ -156,7 +204,33 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
       winRate,
       profitFactor
     };
-  }, [candles, initialCapital, feeRate, threshold]);
+  }, [candles, initialCapital, feeRate, threshold, strategyModel, stopLossPct, takeProfitPct]);
+
+  // Export Backtest CSV function
+  const handleExportCsv = () => {
+    const headers = ['id', 'date', 'type', 'reason', 'price', 'units', 'value_usd', 'pnl_usd', 'pnl_pct'];
+    const rows = backtestResults.trades.map((t) => [
+      t.id,
+      t.date,
+      t.type,
+      t.reason,
+      t.price.toFixed(2),
+      t.units.toFixed(6),
+      t.value.toFixed(2),
+      t.pnl.toFixed(2),
+      t.pnlPct.toFixed(2) + '%'
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `backtest_${strategyModel}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const filteredTrades = useMemo(() => {
     if (filterTradeType === 'ALL') return backtestResults.trades;
@@ -198,45 +272,90 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
 
   return (
     <div className="space-y-6">
-      {/* Top Parameter & Backtest Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      {/* Top Strategy Selector Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-400" />
-              Algorithmic Backtesting Lab
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold mb-2">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              Quantitative Strategy Backtest Engine
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Algorithmic Backtesting &amp; Strategy Comparator
             </h2>
             <p className="text-xs text-slate-400">
-              Simulate quantitative LSTM signal generation and compare with benchmark Buy &amp; Hold
+              Test machine learning models, astronomical cycle confluences, and classic technical systems against Bitcoin history
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
-            <div>
-              <span className="text-slate-400 block mb-1">Capital ($)</span>
-              <input
-                type="number"
-                value={initialCapital}
-                onChange={(e) => setInitialCapital(Math.max(100, Number(e.target.value)))}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white w-24 text-right focus:border-amber-500 focus:outline-none"
-              />
-            </div>
+          <button
+            onClick={handleExportCsv}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-mono text-xs font-bold transition-all border border-slate-700"
+          >
+            <Download className="w-3.5 h-3.5 text-amber-400" />
+            Export Backtest (.csv)
+          </button>
+        </div>
 
-            <div>
-              <span className="text-slate-400 block mb-1">Fee (0.1% = 0.001)</span>
-              <input
-                type="number"
-                step="0.0005"
-                value={feeRate}
-                onChange={(e) => setFeeRate(Number(e.target.value))}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white w-24 text-right focus:border-amber-500 focus:outline-none"
-              />
-            </div>
+        {/* Strategy Selection Pills */}
+        <div className="space-y-2">
+          <span className="text-xs font-semibold text-slate-300">Select Backtest Strategy Model:</span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {[
+              { id: 'lstm', label: 'LSTM Neural Model', desc: 'Probability threshold' },
+              { id: 'astronacci', label: 'Astronacci Apogee', desc: 'Lunar ±2d + RSI' },
+              { id: 'ema_cross', label: 'EMA 9/21 Ribbon', desc: 'Trend crossover' },
+              { id: 'rsi_reversal', label: 'RSI Reversal (14)', desc: '35 oversold / 65 exit' },
+              { id: 'bb_breakout', label: 'Bollinger Breakout', desc: 'Mid-band momentum' }
+            ].map((strat) => (
+              <button
+                key={strat.id}
+                onClick={() => setStrategyModel(strat.id as any)}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  strategyModel === strat.id
+                    ? 'bg-amber-500/15 border-amber-500/50 text-white shadow-md shadow-amber-500/10'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/40'
+                }`}
+              >
+                <span className={`block text-xs font-bold ${strategyModel === strat.id ? 'text-amber-400' : 'text-slate-200'}`}>
+                  {strat.label}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  {strat.desc}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
+        {/* Strategy Parameters Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-800/80 text-xs font-mono">
+          <div>
+            <span className="text-slate-400 block mb-1">Capital ($)</span>
+            <input
+              type="number"
+              value={initialCapital}
+              onChange={(e) => setInitialCapital(Math.max(100, Number(e.target.value)))}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white w-full text-right focus:border-amber-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <span className="text-slate-400 block mb-1">Fee Rate (0.1%)</span>
+            <input
+              type="number"
+              step="0.0005"
+              value={feeRate}
+              onChange={(e) => setFeeRate(Number(e.target.value))}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white w-full text-right focus:border-amber-500 focus:outline-none"
+            />
+          </div>
+
+          {strategyModel === 'lstm' ? (
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-slate-400">Signal Threshold:</span>
-                <span className="text-amber-400 font-bold ml-2">{threshold.toFixed(2)}</span>
+                <span className="text-slate-400">Threshold:</span>
+                <span className="text-amber-400 font-bold">{threshold.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -245,17 +364,54 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
                 step="0.01"
                 value={threshold}
                 onChange={(e) => setThreshold(Number(e.target.value))}
-                className="w-36 accent-amber-500 cursor-pointer"
+                className="w-full accent-amber-500 cursor-pointer"
               />
             </div>
+          ) : (
+            <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-center text-slate-400">
+              <span className="text-[10px] block">Trigger Logic</span>
+              <span className="text-amber-400 font-bold">Rule Based</span>
+            </div>
+          )}
 
+          <div>
+            <span className="text-slate-400 block mb-1">Stop Loss</span>
+            <select
+              value={stopLossPct}
+              onChange={(e) => setStopLossPct(Number(e.target.value))}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white w-full focus:outline-none focus:border-amber-500"
+            >
+              <option value="0">Disabled (None)</option>
+              <option value="3">3% Stop Loss</option>
+              <option value="5">5% Stop Loss</option>
+              <option value="10">10% Stop Loss</option>
+            </select>
+          </div>
+
+          <div>
+            <span className="text-slate-400 block mb-1">Take Profit</span>
+            <select
+              value={takeProfitPct}
+              onChange={(e) => setTakeProfitPct(Number(e.target.value))}
+              className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white w-full focus:outline-none focus:border-amber-500"
+            >
+              <option value="0">Disabled (None)</option>
+              <option value="10">10% Target</option>
+              <option value="15">15% Target</option>
+              <option value="25">25% Target</option>
+            </select>
+          </div>
+
+          <div className="flex items-end">
             <button
               onClick={() => {
                 setInitialCapital(1000);
                 setFeeRate(0.001);
                 setThreshold(0.51);
+                setStopLossPct(0);
+                setTakeProfitPct(0);
               }}
-              className="mt-4 lg:mt-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+              className="w-full py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center justify-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Reset
@@ -264,7 +420,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
         </div>
 
         {/* Metric Cards Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-3 border-t border-slate-800/80">
           <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3">
             <span className="text-[11px] font-medium text-slate-400 block">Final Strategy Balance</span>
             <div className="text-lg font-bold font-mono text-emerald-400 mt-0.5">
@@ -290,7 +446,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
             <div className="text-lg font-bold font-mono text-amber-400 mt-0.5">
               -{backtestResults.maxDrawdown.toFixed(2)}%
             </div>
-            <span className="text-[10px] text-slate-400">Protection edge vs crash</span>
+            <span className="text-[10px] text-slate-400">Peak-to-trough drop</span>
           </div>
 
           <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3">
@@ -314,10 +470,13 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
             <div className={`text-lg font-bold font-mono mt-0.5 ${backtestResults.totalReturnPct - backtestResults.buyHoldReturnPct >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
               {(backtestResults.totalReturnPct - backtestResults.buyHoldReturnPct).toFixed(2)}%
             </div>
-            <span className="text-[10px] text-slate-400">Risk-adjusted Alpha</span>
+            <span className="text-[10px] text-slate-400">Edge vs Benchmark</span>
           </div>
         </div>
       </div>
+
+      {/* Pro Interactive Candlestick Chart Terminal (TradingView Style) */}
+      <CandlestickChart initialCandles={candles} currentPrice={currentPrice} />
 
       {/* Main Equity Comparison Chart */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
@@ -325,9 +484,9 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-emerald-400" />
-              Equity Growth Comparison: Strategy vs Buy &amp; Hold
+              Equity Growth Comparison: Strategy ({strategyModel.toUpperCase()}) vs Buy &amp; Hold
             </h3>
-            <p className="text-xs text-slate-400">Interactive trajectory on test dataset starting at $1,000</p>
+            <p className="text-xs text-slate-400">Interactive trajectory on test dataset starting at ${initialCapital.toLocaleString()}</p>
           </div>
 
           <div className="flex items-center gap-4 text-xs">
@@ -417,7 +576,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
 
         <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-800/60">
           <span>Start: {candles[0]?.timestamp}</span>
-          <span>Window Size: 60 periods lookback</span>
+          <span>Strategy: {strategyModel.toUpperCase()} (Fee: {(feeRate * 100).toFixed(2)}%)</span>
           <span>End: {candles[candles.length - 1]?.timestamp}</span>
         </div>
       </div>
@@ -430,7 +589,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
               <Clock className="w-4 h-4 text-amber-400" />
               Backtest Trade Execution History
             </h3>
-            <p className="text-xs text-slate-400">Order fills with exchange fees and profit realization</p>
+            <p className="text-xs text-slate-400">Order fills with exchange fees, execution trigger reasons, and profit realization</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -456,6 +615,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
               <tr className="border-b border-slate-800 text-slate-400">
                 <th className="py-2.5 px-3">Date</th>
                 <th className="py-2.5 px-3">Side</th>
+                <th className="py-2.5 px-3">Reason</th>
                 <th className="py-2.5 px-3 text-right">Execution Price</th>
                 <th className="py-2.5 px-3 text-right">Position Units</th>
                 <th className="py-2.5 px-3 text-right">Order Value</th>
@@ -465,8 +625,8 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
             <tbody className="divide-y divide-slate-800/60">
               {filteredTrades.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    No trades executed with threshold {threshold.toFixed(2)}. Adjust threshold to generate signals.
+                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                    No trades executed with current parameters. Adjust strategy or threshold to generate signals.
                   </td>
                 </tr>
               ) : (
@@ -483,6 +643,9 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles }) => {
                       >
                         {t.type}
                       </span>
+                    </td>
+                    <td className="py-2 px-3 text-slate-400 text-[10px]">
+                      {t.reason}
                     </td>
                     <td className="py-2 px-3 text-right text-slate-200">
                       ${t.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
