@@ -14,7 +14,10 @@ import {
   ShieldCheck, 
   Zap,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Calendar,
+  Filter,
+  Check
 } from 'lucide-react';
 
 interface RiskManagementTabProps {
@@ -26,15 +29,46 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
   // Configurable holdings and risk parameters
   const [btcAmount, setBtcAmount] = useState<number>(0.125); // Default holdings from portfolio
   const [confidenceLevel, setConfidenceLevel] = useState<90 | 95 | 99>(95);
-  const [holdingPeriodDays, setHoldingPeriodDays] = useState<1 | 7 | 14 | 30>(1);
   const [annualRiskFreeRate, setAnnualRiskFreeRate] = useState<number>(4.0); // 4% default risk-free rate
+
+  // Custom Horizon (Forward Holding Period in Days)
+  const [holdingPeriodDays, setHoldingPeriodDays] = useState<number>(1);
+  const [isCustomHorizon, setIsCustomHorizon] = useState<boolean>(false);
+
+  // Custom Historical Lookback Window / Date Range Filter
+  const minDate = candles[0]?.timestamp?.split(' ')[0] || '2026-01-15';
+  const maxDate = candles[candles.length - 1]?.timestamp?.split(' ')[0] || '2026-03-05';
+
+  const [lookbackMode, setLookbackMode] = useState<'all' | '14d' | '30d' | 'custom'>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>(minDate);
+  const [customEndDate, setCustomEndDate] = useState<string>(maxDate);
+
+  // Filter historical candles based on selected period
+  const activeCandles = useMemo(() => {
+    if (!candles || candles.length === 0) return [];
+
+    if (lookbackMode === '14d') {
+      return candles.slice(-14);
+    }
+    if (lookbackMode === '30d') {
+      return candles.slice(-30);
+    }
+    if (lookbackMode === 'custom') {
+      const filtered = candles.filter((c) => {
+        const d = c.timestamp.split(' ')[0];
+        return d >= customStartDate && d <= customEndDate;
+      });
+      return filtered.length >= 2 ? filtered : candles;
+    }
+    return candles;
+  }, [candles, lookbackMode, customStartDate, customEndDate]);
 
   // Calculate position value in USD
   const positionValueUsd = btcAmount * currentPrice;
 
-  // Quantitative computations from historical candle returns
+  // Quantitative computations from filtered candle returns
   const metrics = useMemo(() => {
-    if (!candles || candles.length < 2) {
+    if (!activeCandles || activeCandles.length < 2) {
       return {
         returns: [],
         meanDailyReturn: 0,
@@ -57,9 +91,9 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
 
     // 1. Calculate Daily Simple Returns
     const returns: number[] = [];
-    for (let i = 1; i < candles.length; i++) {
-      const prevClose = candles[i - 1].close;
-      const curClose = candles[i].close;
+    for (let i = 1; i < activeCandles.length; i++) {
+      const prevClose = activeCandles[i - 1].close;
+      const curClose = activeCandles[i].close;
       if (prevClose > 0) {
         returns.push((curClose - prevClose) / prevClose);
       }
@@ -70,13 +104,13 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     const meanDailyReturn = sum / n;
 
     // Variance and Standard Deviation (Daily Volatility)
-    const variance = returns.reduce((acc, r) => acc + Math.pow(r - meanDailyReturn, 2), 0) / (n - 1);
+    const variance = returns.reduce((acc, r) => acc + Math.pow(r - meanDailyReturn, 2), 0) / (n - 1 || 1);
     const dailyVolatility = Math.sqrt(variance);
 
     // Downside Deviation (for Sortino Ratio)
     const dailyRf = (annualRiskFreeRate / 100) / 365;
     const negativeDeviations = returns.filter((r) => r < dailyRf);
-    const downsideVariance = negativeDeviations.reduce((acc, r) => acc + Math.pow(r - dailyRf, 2), 0) / (n - 1);
+    const downsideVariance = negativeDeviations.reduce((acc, r) => acc + Math.pow(r - dailyRf, 2), 0) / (n - 1 || 1);
     const downsideVolatility = Math.sqrt(downsideVariance || 0.0001);
 
     // Annualized Metrics
@@ -95,7 +129,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     // Z-score for Parametric VaR
     const zScores: Record<number, number> = { 90: 1.282, 95: 1.645, 99: 2.326 };
     const z = zScores[confidenceLevel] || 1.645;
-    const horizonMultiplier = Math.sqrt(holdingPeriodDays);
+    const horizonMultiplier = Math.sqrt(Math.max(1, holdingPeriodDays));
 
     // Parametric VaR: - (mu * dt - z * sigma * sqrt(dt))
     const parametricVaRPct = Math.max(0, -(meanDailyReturn * holdingPeriodDays - z * dailyVolatility * horizonMultiplier)) * 100;
@@ -105,7 +139,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     const sortedReturns = [...returns].sort((a, b) => a - b);
     const alphaPct = (100 - confidenceLevel) / 100;
     const cutoffIndex = Math.max(0, Math.floor(n * alphaPct));
-    const historicalLossReturn = sortedReturns[cutoffIndex]; // negative number
+    const historicalLossReturn = sortedReturns[cutoffIndex] ?? -0.02; // negative number
     const historicalVaRPct = Math.max(0, -historicalLossReturn * horizonMultiplier * 100);
     const historicalVaRUsd = (historicalVaRPct / 100) * positionValueUsd;
 
@@ -116,11 +150,11 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     const cvarUsd = (cvarPct / 100) * positionValueUsd;
 
     // 5. Historical Maximum Drawdown & Series
-    let peak = candles[0].close;
+    let peak = activeCandles[0].close;
     let maxDrawdown = 0;
     const drawdownSeries: Array<{ date: string; dd: number }> = [];
 
-    candles.forEach((c) => {
+    activeCandles.forEach((c) => {
       if (c.close > peak) {
         peak = c.close;
       }
@@ -152,7 +186,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
       calmarRatio,
       drawdownSeries
     };
-  }, [candles, currentPrice, positionValueUsd, confidenceLevel, holdingPeriodDays, annualRiskFreeRate]);
+  }, [activeCandles, positionValueUsd, confidenceLevel, holdingPeriodDays, annualRiskFreeRate]);
 
   // Distribution histogram buckets for returns
   const histogramBuckets = useMemo(() => {
@@ -193,7 +227,6 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
   const ddPointsCount = metrics.drawdownSeries.length;
   const ddScaleX = (idx: number) => ddPadding.left + (idx / (ddPointsCount - 1 || 1)) * (ddWidth - ddPadding.left - ddPadding.right);
   const ddScaleY = (val: number) => {
-    // val is 0 to -maxDrawdown
     const minDd = -Math.max(10, metrics.maxDrawdown * 1.1);
     return ddPadding.top + ((0 - val) / (0 - minDd || 1)) * (ddHeight - ddPadding.top - ddPadding.bottom);
   };
@@ -213,13 +246,13 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold mb-2 font-mono">
               <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-              Institutional Risk Engine
+              Institutional Risk &amp; VaR Engine
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
               Value at Risk (VaR) &amp; Sharpe Ratio Analytics
             </h2>
             <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Empirical downside risk estimation, tail-risk Expected Shortfall (CVaR), and risk-adjusted return ratios calculated dynamically from historical Bitcoin candles and real-time portfolio holdings.
+              Empirical downside risk estimation, tail-risk Expected Shortfall (CVaR), and risk-adjusted return ratios with customizable holding horizons and flexible historical lookback periods.
             </p>
           </div>
 
@@ -234,8 +267,83 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
           </div>
         </div>
 
+        {/* Custom Historical Analysis Period Filter Toolbar */}
+        <div className="mt-5 pt-4 border-t border-slate-800/80 space-y-3 font-mono text-xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-amber-400" />
+              <span className="font-bold text-slate-200">Historical Lookback Window:</span>
+            </div>
+
+            {/* Presets + Custom Button */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'all', label: 'All History' },
+                { id: '14d', label: 'Last 14d' },
+                { id: '30d', label: 'Last 30d' },
+                { id: 'custom', label: 'Custom Date Range' }
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setLookbackMode(p.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    lookbackMode === p.id
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Date Pickers when 'custom' is active */}
+          {lookbackMode === 'custom' && (
+            <div className="p-3 bg-slate-950/90 rounded-xl border border-amber-500/30 flex flex-wrap items-center gap-4 animate-fadeIn">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-xs">Start Date:</span>
+                <input
+                  type="date"
+                  min={minDate}
+                  max={customEndDate}
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-xs">End Date:</span>
+                <input
+                  type="date"
+                  min={customStartDate}
+                  max={maxDate}
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <span className="text-amber-400 text-[11px] ml-auto">
+                Evaluating {activeCandles.length} candles in range
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+            <span>
+              Active Data Scope: <strong className="text-slate-300">{activeCandles[0]?.timestamp?.split(' ')[0]}</strong> to <strong className="text-slate-300">{activeCandles[activeCandles.length - 1]?.timestamp?.split(' ')[0]}</strong>
+            </span>
+            <span className="text-cyan-400 font-semibold">
+              Sample Size: {activeCandles.length} trading sessions
+            </span>
+          </div>
+        </div>
+
         {/* Holdings and Risk Controls Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-5 mt-4 border-t border-slate-800/80 font-mono text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4 mt-3 border-t border-slate-800/80 font-mono text-xs">
+          {/* BTC Holdings Input */}
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
             <span className="text-slate-400 block mb-1">BTC Holdings</span>
             <div className="flex items-center gap-2">
@@ -251,6 +359,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
             </div>
           </div>
 
+          {/* Confidence Level */}
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
             <div className="flex justify-between items-center mb-1">
               <span className="text-slate-400">Confidence Level:</span>
@@ -273,28 +382,56 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
             </div>
           </div>
 
+          {/* Custom Holding Horizon Days */}
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-slate-400">Holding Period:</span>
+              <span className="text-slate-400">Forward Horizon (VaR):</span>
               <span className="text-cyan-400 font-bold">{holdingPeriodDays}d Horizon</span>
             </div>
-            <div className="flex gap-1">
-              {([1, 7, 14, 30] as const).map((days) => (
-                <button
-                  key={days}
-                  onClick={() => setHoldingPeriodDays(days)}
-                  className={`flex-1 py-1 rounded text-xs font-bold transition-all ${
-                    holdingPeriodDays === days
-                      ? 'bg-cyan-600 text-white shadow-sm'
-                      : 'bg-slate-900 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {days}d
-                </button>
-              ))}
+
+            <div className="flex items-center gap-1.5">
+              <div className="flex flex-1 gap-1">
+                {[1, 7, 14, 30].map((days) => (
+                  <button
+                    key={days}
+                    onClick={() => {
+                      setHoldingPeriodDays(days);
+                      setIsCustomHorizon(false);
+                    }}
+                    className={`flex-1 py-1 rounded text-[11px] font-bold transition-all ${
+                      holdingPeriodDays === days && !isCustomHorizon
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'bg-slate-900 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {days}d
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Day Input */}
+              <div className="w-20 relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={holdingPeriodDays}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(365, Number(e.target.value) || 1));
+                    setHoldingPeriodDays(val);
+                    setIsCustomHorizon(true);
+                  }}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white font-bold w-full text-right focus:border-cyan-500 focus:outline-none text-[11px]"
+                  placeholder="Custom"
+                />
+                <span className="absolute right-6 top-1 text-[10px] text-slate-500 pointer-events-none">
+                  d
+                </span>
+              </div>
             </div>
           </div>
 
+          {/* Risk-Free Rate */}
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
             <div className="flex justify-between items-center mb-1">
               <span className="text-slate-400">Risk-Free Rate:</span>
@@ -409,7 +546,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
               Daily Return Distribution &amp; Value at Risk Thresholds
             </h3>
             <p className="text-xs text-slate-400">
-              Histogram of daily returns showing empirical distribution frequency and left-tail loss thresholds
+              Histogram of daily returns evaluated over active {activeCandles.length} candles ({activeCandles[0]?.timestamp?.split(' ')[0]} to {activeCandles[activeCandles.length - 1]?.timestamp?.split(' ')[0]})
             </p>
           </div>
 
@@ -459,9 +596,9 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
         </div>
 
         <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-2">
-          <span>Worst Historical Loss: {((Math.min(...metrics.returns, 0)) * 100).toFixed(2)}%</span>
+          <span>Worst Loss in Period: {((Math.min(...metrics.returns, 0)) * 100).toFixed(2)}%</span>
           <span>Zero Line (0.00%)</span>
-          <span>Best Historical Gain: {((Math.max(...metrics.returns, 0)) * 100).toFixed(2)}%</span>
+          <span>Best Gain in Period: {((Math.max(...metrics.returns, 0)) * 100).toFixed(2)}%</span>
         </div>
       </div>
 
@@ -471,14 +608,14 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-rose-400" />
-              Historical Underwater Drawdown Curve
+              Underwater Drawdown Curve ({lookbackMode.toUpperCase()} Period)
             </h3>
             <p className="text-xs text-slate-400">
-              Depth and duration of historical capital drawdowns relative to all-time highs
+              Depth and recovery duration of capital drawdowns during selected historical period
             </p>
           </div>
           <span className="text-xs font-mono text-rose-400 font-bold">
-            Max Peak Drop: -{metrics.maxDrawdown.toFixed(2)}%
+            Period Max Drop: -{metrics.maxDrawdown.toFixed(2)}%
           </span>
         </div>
 
