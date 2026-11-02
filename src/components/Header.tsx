@@ -10,7 +10,8 @@ import {
   Sparkles,
   RefreshCw,
   SlidersHorizontal,
-  Zap
+  Zap,
+  ShieldAlert
 } from 'lucide-react';
 import { LiveTicker } from '../services/cryptoApi';
 
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const tabs = [
     { id: 'overview', label: 'Market & Backtest', icon: TrendingUp },
+    { id: 'risk', label: 'Risk & VaR', icon: ShieldAlert },
     { id: 'astronacci', label: 'Astronacci & Apogee', icon: Orbit },
     { id: 'lstm', label: 'LSTM Deep Learning', icon: BrainCircuit },
     { id: 'monte-carlo', label: 'Monte Carlo Engine', icon: Activity },
