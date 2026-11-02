@@ -21,7 +21,10 @@ import {
   Flag,
   Layers,
   History,
-  Target
+  Target,
+  Network,
+  Grid3X3,
+  Info
 } from 'lucide-react';
 
 interface RiskManagementTabProps {
@@ -49,6 +52,9 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
 
   // Interactive Hover State for Drawdown Tracker
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  // Interactive Selected Cell in Correlation Matrix
+  const [selectedCorrPair, setSelectedCorrPair] = useState<{ row: number; col: number } | null>({ row: 0, col: 2 });
 
   // Filter historical candles based on selected period
   const activeCandles = useMemo(() => {
@@ -292,7 +298,6 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
         curPIdx = idx;
       }
       const dd = ((curP - c.close) / curP) * 100;
-      // If outside the main MDD window
       if ((idx < mddPeakIdx || idx > (recoveryIdx ?? activeCandles.length - 1)) && dd > secondWorstDd) {
         secondWorstDd = dd;
         sPeak = curP;
@@ -353,6 +358,159 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
       drawdownEpisodes
     };
   }, [activeCandles, currentPrice, positionValueUsd, btcAmount, confidenceLevel, holdingPeriodDays, annualRiskFreeRate]);
+
+  // -------------------------------------------------------------
+  // CORRELATION MATRIX CALCULATIONS
+  // Variables: BTC Return vs Historical Volatility Metrics
+  // -------------------------------------------------------------
+  const corrData = useMemo(() => {
+    if (!activeCandles || activeCandles.length < 5) return null;
+
+    // Helper for Pearson correlation
+    function calcPearson(x: number[], y: number[]): number {
+      const len = Math.min(x.length, y.length);
+      if (len < 2) return 0;
+      const xSlice = x.slice(0, len);
+      const ySlice = y.slice(0, len);
+      const meanX = xSlice.reduce((a, b) => a + b, 0) / len;
+      const meanY = ySlice.reduce((a, b) => a + b, 0) / len;
+
+      let num = 0;
+      let denX = 0;
+      let denY = 0;
+      for (let i = 0; i < len; i++) {
+        const dx = xSlice[i] - meanX;
+        const dy = ySlice[i] - meanY;
+        num += dx * dy;
+        denX += dx * dx;
+        denY += dy * dy;
+      }
+      const den = Math.sqrt(denX * denY);
+      if (den === 0) return 0;
+      return Math.max(-1, Math.min(1, num / den));
+    }
+
+    // Prepare time series arrays starting from candle index 1
+    const retArr: number[] = [];
+    const vol7Arr: number[] = [];
+    const vol14Arr: number[] = [];
+    const rangeArr: number[] = [];
+    const bbWidthArr: number[] = [];
+    const volumeArr: number[] = [];
+    const ddArr: number[] = [];
+
+    let runningAth = activeCandles[0].close;
+
+    for (let i = 1; i < activeCandles.length; i++) {
+      const prevC = activeCandles[i - 1].close;
+      const curC = activeCandles[i].close;
+      const ret = prevC > 0 ? ((curC - prevC) / prevC) * 100 : 0;
+      retArr.push(ret);
+
+      // Intraday True Range %
+      const high = activeCandles[i].high;
+      const low = activeCandles[i].low;
+      const range = curC > 0 ? ((high - low) / curC) * 100 : 0;
+      rangeArr.push(range);
+
+      // Volume
+      volumeArr.push(activeCandles[i].volume || 1);
+
+      // Bollinger Bandwidth %
+      const bbMid = activeCandles[i].bbMid || curC;
+      const bbUpper = activeCandles[i].bbUpper || curC * 1.02;
+      const bbLower = activeCandles[i].bbLower || curC * 0.98;
+      const bbWidth = bbMid > 0 ? ((bbUpper - bbLower) / bbMid) * 100 : 0;
+      bbWidthArr.push(bbWidth);
+
+      // Running Drawdown %
+      if (curC > runningAth) runningAth = curC;
+      const dd = runningAth > 0 ? ((runningAth - curC) / runningAth) * 100 : 0;
+      ddArr.push(dd);
+
+      // 7-day Rolling Volatility
+      const start7 = Math.max(0, retArr.length - 7);
+      const slice7 = retArr.slice(start7);
+      const m7 = slice7.reduce((a, b) => a + b, 0) / slice7.length;
+      const var7 = slice7.reduce((a, b) => a + Math.pow(b - m7, 2), 0) / (slice7.length || 1);
+      vol7Arr.push(Math.sqrt(var7));
+
+      // 14-day Rolling Volatility
+      const start14 = Math.max(0, retArr.length - 14);
+      const slice14 = retArr.slice(start14);
+      const m14 = slice14.reduce((a, b) => a + b, 0) / slice14.length;
+      const var14 = slice14.reduce((a, b) => a + Math.pow(b - m14, 2), 0) / (slice14.length || 1);
+      vol14Arr.push(Math.sqrt(var14));
+    }
+
+    const variables = [
+      { id: 'ret', label: 'BTC Return', desc: 'Daily % price change', data: retArr },
+      { id: 'vol7', label: '7d Realized Vol', desc: '7-day rolling return volatility', data: vol7Arr },
+      { id: 'vol14', label: '14d Realized Vol', desc: '14-day rolling return volatility', data: vol14Arr },
+      { id: 'range', label: 'Intraday Range', desc: '(High - Low) / Close spread', data: rangeArr },
+      { id: 'bbWidth', label: 'BB Bandwidth', desc: 'Bollinger envelope expansion', data: bbWidthArr },
+      { id: 'volume', label: 'Trading Volume', desc: 'Daily market dollar volume', data: volumeArr },
+      { id: 'dd', label: 'ATH Drawdown', desc: 'Distance below running peak', data: ddArr }
+    ];
+
+    // Compute NxN correlation matrix
+    const matrix: number[][] = [];
+    for (let r = 0; r < variables.length; r++) {
+      const row: number[] = [];
+      for (let c = 0; c < variables.length; c++) {
+        if (r === c) {
+          row.push(1.0);
+        } else {
+          row.push(calcPearson(variables[r].data, variables[c].data));
+        }
+      }
+      matrix.push(row);
+    }
+
+    return { variables, matrix };
+  }, [activeCandles]);
+
+  // Helper color for correlation cell
+  const getCorrColor = (val: number) => {
+    if (val >= 0.7) return 'bg-emerald-500/35 text-emerald-200 border-emerald-500/50 font-bold';
+    if (val >= 0.3) return 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+    if (val > -0.3 && val < 0.3) return 'bg-slate-950/70 text-slate-400 border-slate-800';
+    if (val <= -0.7) return 'bg-rose-500/35 text-rose-200 border-rose-500/50 font-bold';
+    return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+  };
+
+  // Interpretation helper for selected pair
+  const selectedInsight = useMemo(() => {
+    if (!corrData || !selectedCorrPair) return null;
+    const v1 = corrData.variables[selectedCorrPair.row];
+    const v2 = corrData.variables[selectedCorrPair.col];
+    const r = corrData.matrix[selectedCorrPair.row][selectedCorrPair.col];
+    const r2 = Math.pow(r, 2) * 100;
+
+    let relationship = 'Neutral / Weak Co-movement';
+    let explanation = '';
+
+    if (selectedCorrPair.row === selectedCorrPair.col) {
+      relationship = 'Perfect Identity Correlation (1.00)';
+      explanation = 'Each metric correlates perfectly with itself.';
+    } else if (r >= 0.6) {
+      relationship = 'Strong Positive Coupling (Direct Co-movement)';
+      explanation = `When ${v1.label} expands, ${v2.label} strongly tends to rise alongside it. Explains ${r2.toFixed(1)}% of co-variance.`;
+    } else if (r >= 0.25) {
+      relationship = 'Moderate Positive Correlation';
+      explanation = `Mild tendency for ${v1.label} and ${v2.label} to expand in tandem during directional momentum regimes.`;
+    } else if (r <= -0.6) {
+      relationship = 'Strong Inverse Decoupling / Asymmetric Response';
+      explanation = `When ${v1.label} experiences negative momentum, ${v2.label} surges significantly. Typical of leverage unwinds where volatility escalates on price decline.`;
+    } else if (r <= -0.25) {
+      relationship = 'Moderate Inverse Correlation';
+      explanation = `Inverse tendency between ${v1.label} and ${v2.label}. Serves as an effective hedge indicator in risk sizing.`;
+    } else {
+      explanation = `Near-zero linear correlation (${r.toFixed(2)}). Indicates ${v1.label} and ${v2.label} behave as statistically independent orthogonal risk dimensions.`;
+    }
+
+    return { v1, v2, r, r2, relationship, explanation };
+  }, [corrData, selectedCorrPair]);
 
   // Distribution histogram buckets for returns
   const histogramBuckets = useMemo(() => {
@@ -467,13 +625,13 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold mb-2 font-mono">
               <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-              Maximum Drawdown &amp; Tail Risk Terminal
+              Maximum Drawdown, VaR &amp; Correlation Analytics
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
-              Maximum Drawdown (MDD) Tracker &amp; VaR Analytics
+              Value at Risk (VaR), Maximum Drawdown &amp; Volatility Correlation
             </h2>
             <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Track the worst historical peak-to-trough capital declines, analyze recovery durations, and measure tail risk exposures on current Bitcoin holdings.
+              Analyze historical peak-to-trough capital declines, empirical tail risk (VaR &amp; CVaR), and quantify how Bitcoin price momentum correlates with volatility regime shifts.
             </p>
           </div>
 
@@ -666,6 +824,93 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
               onChange={(e) => setAnnualRiskFreeRate(Number(e.target.value))}
               className="w-full accent-amber-500 cursor-pointer"
             />
+          </div>
+        </div>
+      </div>
+
+      {/* PRIMARY QUANTITATIVE METRIC CARDS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Parametric VaR Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Parametric VaR ({confidenceLevel}%)</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+          </div>
+          <div className="text-lg font-bold font-mono text-rose-400 mt-0.5">
+            ${metrics.parametricVaRUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[11px] font-mono text-slate-400">
+            -{metrics.parametricVaRPct.toFixed(2)}% over {holdingPeriodDays}d
+          </div>
+        </div>
+
+        {/* Historical VaR Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Historical VaR ({confidenceLevel}%)</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+          </div>
+          <div className="text-lg font-bold font-mono text-amber-400 mt-0.5">
+            ${metrics.historicalVaRUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[11px] font-mono text-slate-400">
+            -{metrics.historicalVaRPct.toFixed(2)}% quantile cutoff
+          </div>
+        </div>
+
+        {/* Expected Shortfall (CVaR) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Expected Shortfall (CVaR)</span>
+            <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
+          </div>
+          <div className="text-lg font-bold font-mono text-rose-500 mt-0.5">
+            ${metrics.cvarUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="text-[11px] font-mono text-slate-400">
+            -{metrics.cvarPct.toFixed(2)}% tail average
+          </div>
+        </div>
+
+        {/* Sharpe Ratio Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Annualized Sharpe</span>
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+          </div>
+          <div className={`text-lg font-bold font-mono mt-0.5 ${metrics.sharpeRatio >= 1.0 ? 'text-emerald-400' : metrics.sharpeRatio >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+            {metrics.sharpeRatio.toFixed(2)}x
+          </div>
+          <div className="text-[10px] text-slate-400">
+            {metrics.sharpeRatio >= 2.0 ? 'Exceptional' : metrics.sharpeRatio >= 1.0 ? 'Good risk-adjusted' : 'Sub-optimal'}
+          </div>
+        </div>
+
+        {/* Sortino Ratio Card */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Sortino Ratio</span>
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+          </div>
+          <div className="text-lg font-bold font-mono text-cyan-400 mt-0.5">
+            {metrics.sortinoRatio.toFixed(2)}x
+          </div>
+          <div className="text-[10px] text-slate-400">
+            Downside penalization only
+          </div>
+        </div>
+
+        {/* Calmar Ratio */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Calmar Ratio</span>
+            <AwardIcon />
+          </div>
+          <div className="text-lg font-bold font-mono text-emerald-400 mt-0.5">
+            {metrics.calmarRatio.toFixed(2)}x
+          </div>
+          <div className="text-[10px] text-slate-400">
+            Annual Return / MDD
           </div>
         </div>
       </div>
@@ -1009,94 +1254,149 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
         </div>
       </div>
 
-      {/* Primary Quantitative Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Parametric VaR Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Parametric VaR ({confidenceLevel}%)</span>
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+      {/* CORRELATION MATRIX: BTC PRICE CHANGES VS HISTORICAL VOLATILITY METRICS */}
+      {corrData && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-mono font-bold mb-1">
+                <Network className="w-3.5 h-3.5 text-cyan-400" />
+                Inter-Variable Correlation Engine
+              </div>
+              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                Pearson Correlation Matrix: BTC Returns vs. Volatility Regimes
+              </h3>
+              <p className="text-xs text-slate-400">
+                Measures linear dependency ($r \in [-1, 1]$) between daily Bitcoin price returns and key market volatility indicators
+              </p>
+            </div>
+
+            {/* Heatmap Legend */}
+            <div className="flex items-center gap-3 text-xs font-mono">
+              <span className="flex items-center gap-1 text-rose-400">
+                <span className="w-3 h-3 bg-rose-500/40 border border-rose-500 rounded-sm" />
+                Inverse (-1.0 to -0.6)
+              </span>
+              <span className="flex items-center gap-1 text-slate-400">
+                <span className="w-3 h-3 bg-slate-800 border border-slate-700 rounded-sm" />
+                Neutral (~0.0)
+              </span>
+              <span className="flex items-center gap-1 text-emerald-400">
+                <span className="w-3 h-3 bg-emerald-500/40 border border-emerald-500 rounded-sm" />
+                Coupled (+0.6 to +1.0)
+              </span>
+            </div>
           </div>
-          <div className="text-lg font-bold font-mono text-rose-400 mt-0.5">
-            ${metrics.parametricVaRUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+          {/* Interactive Heatmap Matrix Grid */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-center border-collapse text-xs font-mono">
+              <thead>
+                <tr>
+                  <th className="p-2 text-left text-slate-500 text-[11px] font-semibold">
+                    Variable / Metric
+                  </th>
+                  {corrData.variables.map((v, cIdx) => (
+                    <th key={v.id} className="p-2 text-slate-300 text-[11px] font-bold min-w-[90px]">
+                      {v.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {corrData.variables.map((rowVar, rIdx) => (
+                  <tr key={rowVar.id} className="hover:bg-slate-800/30 transition-colors">
+                    {/* Row Label */}
+                    <td className="p-2.5 text-left font-bold text-slate-200 text-xs whitespace-nowrap bg-slate-950/40 border-r border-slate-800/80">
+                      {rowVar.label}
+                    </td>
+
+                    {/* Correlation Cells */}
+                    {corrData.variables.map((colVar, cIdx) => {
+                      const val = corrData.matrix[rIdx][cIdx];
+                      const isSelected = selectedCorrPair?.row === rIdx && selectedCorrPair?.col === cIdx;
+                      const isDiagonal = rIdx === cIdx;
+
+                      return (
+                        <td
+                          key={colVar.id}
+                          onClick={() => setSelectedCorrPair({ row: rIdx, col: cIdx })}
+                          className={`p-2 cursor-pointer transition-all border border-slate-800/50 ${getCorrColor(val)} ${isSelected ? 'ring-2 ring-cyan-400 shadow-lg scale-105 z-10' : 'hover:scale-102'}`}
+                          title={`${rowVar.label} ↔ ${colVar.label}: ${val.toFixed(2)}`}
+                        >
+                          <div className="font-bold text-xs">
+                            {val >= 0 ? '+' : ''}{val.toFixed(2)}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="text-[11px] font-mono text-slate-400">
-            -{metrics.parametricVaRPct.toFixed(2)}% over {holdingPeriodDays}d
+
+          {/* Selected Pair Quantitative Risk Insight Box */}
+          {selectedInsight && (
+            <div className="p-4 bg-slate-950/90 rounded-xl border border-slate-800 space-y-2 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                  <span className="font-bold text-white text-xs font-mono">
+                    {selectedInsight.v1.label} <span className="text-slate-500">↔</span> {selectedInsight.v2.label}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[10px] font-bold">
+                    r = {selectedInsight.r >= 0 ? '+' : ''}{selectedInsight.r.toFixed(3)}
+                  </span>
+                </div>
+
+                <div className="text-[11px] font-mono text-slate-400">
+                  Coefficient of Determination ($R^2$): <strong className="text-amber-400">{selectedInsight.r2.toFixed(1)}%</strong>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs pt-1">
+                <div>
+                  <span className="text-slate-400 block font-semibold text-[11px]">Relationship Regime:</span>
+                  <span className="text-cyan-300 font-bold">{selectedInsight.relationship}</span>
+                </div>
+                <div className="text-slate-300 text-xs md:max-w-xl font-sans leading-relaxed">
+                  {selectedInsight.explanation}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Macro Risk Coupling Takeaways */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-xs pt-2">
+            <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+              <span className="text-slate-400 text-[10px] block">Asymmetric Leverage Effect</span>
+              <span className="text-rose-400 font-bold block">Negative Return ↔ Volatility</span>
+              <p className="text-[10px] text-slate-500 font-sans">
+                Realized volatility expands substantially during sharp downward price corrections due to automated liquidations.
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+              <span className="text-slate-400 text-[10px] block">Volatility Squeeze Predictor</span>
+              <span className="text-cyan-400 font-bold block">BB Width ↔ Intraday Range</span>
+              <p className="text-[10px] text-slate-500 font-sans">
+                Strong co-movement (+0.65+) between Bollinger bandwidth and daily spread helps pinpoint explosive breakout stages.
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
+              <span className="text-slate-400 text-[10px] block">Volume Confirmation</span>
+              <span className="text-emerald-400 font-bold block">Volume ↔ Drawdown Depth</span>
+              <p className="text-[10px] text-slate-500 font-sans">
+                High turnover volume clusters during local market capitulation troughs, forming reliable exhaustion bottoms.
+              </p>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Historical VaR Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Historical VaR ({confidenceLevel}%)</span>
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-          </div>
-          <div className="text-lg font-bold font-mono text-amber-400 mt-0.5">
-            ${metrics.historicalVaRUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[11px] font-mono text-slate-400">
-            -{metrics.historicalVaRPct.toFixed(2)}% quantile cutoff
-          </div>
-        </div>
-
-        {/* Expected Shortfall (CVaR) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Expected Shortfall (CVaR)</span>
-            <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
-          </div>
-          <div className="text-lg font-bold font-mono text-rose-500 mt-0.5">
-            ${metrics.cvarUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <div className="text-[11px] font-mono text-slate-400">
-            -{metrics.cvarPct.toFixed(2)}% tail average
-          </div>
-        </div>
-
-        {/* Sharpe Ratio Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Annualized Sharpe</span>
-            <Zap className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <div className={`text-lg font-bold font-mono mt-0.5 ${metrics.sharpeRatio >= 1.0 ? 'text-emerald-400' : metrics.sharpeRatio >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-            {metrics.sharpeRatio.toFixed(2)}x
-          </div>
-          <div className="text-[10px] text-slate-400">
-            {metrics.sharpeRatio >= 2.0 ? 'Exceptional' : metrics.sharpeRatio >= 1.0 ? 'Good risk-adjusted' : 'Sub-optimal'}
-          </div>
-        </div>
-
-        {/* Sortino Ratio Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Sortino Ratio</span>
-            <Activity className="w-3.5 h-3.5 text-cyan-400" />
-          </div>
-          <div className="text-lg font-bold font-mono text-cyan-400 mt-0.5">
-            {metrics.sortinoRatio.toFixed(2)}x
-          </div>
-          <div className="text-[10px] text-slate-400">
-            Downside penalization only
-          </div>
-        </div>
-
-        {/* Calmar Ratio */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Calmar Ratio</span>
-            <AwardIcon />
-          </div>
-          <div className="text-lg font-bold font-mono text-emerald-400 mt-0.5">
-            {metrics.calmarRatio.toFixed(2)}x
-          </div>
-          <div className="text-[10px] text-slate-400">
-            Annual Return / MDD
-          </div>
-        </div>
-      </div>
-
-      {/* Returns Distribution & VaR Cutoff Histogram */}
+      {/* RETURNS DISTRIBUTION & VAR CUTOFF HISTOGRAM */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div>
@@ -1161,7 +1461,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
         </div>
       </div>
 
-      {/* Stress Testing & Scenario Shock Simulator */}
+      {/* PORTFOLIO SCENARIO STRESS TESTING */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-3 border-b border-slate-800">
           <ShieldCheck className="w-4 h-4 text-cyan-400" />
