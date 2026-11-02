@@ -17,7 +17,11 @@ import {
   ArrowRight,
   Calendar,
   Filter,
-  Check
+  Check,
+  Flag,
+  Layers,
+  History,
+  Target
 } from 'lucide-react';
 
 interface RiskManagementTabProps {
@@ -43,6 +47,9 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
   const [customStartDate, setCustomStartDate] = useState<string>(minDate);
   const [customEndDate, setCustomEndDate] = useState<string>(maxDate);
 
+  // Interactive Hover State for Drawdown Tracker
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
   // Filter historical candles based on selected period
   const activeCandles = useMemo(() => {
     if (!candles || candles.length === 0) return [];
@@ -66,7 +73,7 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
   // Calculate position value in USD
   const positionValueUsd = btcAmount * currentPrice;
 
-  // Quantitative computations from filtered candle returns
+  // Quantitative computations & Maximum Drawdown (MDD) tracking
   const metrics = useMemo(() => {
     if (!activeCandles || activeCandles.length < 2) {
       return {
@@ -85,7 +92,24 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
         sortinoRatio: 0,
         maxDrawdown: 0,
         calmarRatio: 0,
-        drawdownSeries: []
+        drawdownSeries: [],
+        mddPeak: 0,
+        mddPeakDate: '',
+        mddPeakIdx: 0,
+        mddTrough: 0,
+        mddTroughDate: '',
+        mddTroughIdx: 0,
+        mddLossPerBtc: 0,
+        mddLossPosition: 0,
+        declineDays: 0,
+        recoveryDays: null as number | null,
+        recoveryDate: null as string | null,
+        isRecovered: false,
+        athPrice: 0,
+        currentDdPct: 0,
+        currentDdUsd: 0,
+        ulcerIndex: 0,
+        drawdownEpisodes: []
       };
     }
 
@@ -126,47 +150,172 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     const sortinoRatio = dailySortino * Math.sqrt(365);
 
     // 4. Value at Risk (VaR)
-    // Z-score for Parametric VaR
     const zScores: Record<number, number> = { 90: 1.282, 95: 1.645, 99: 2.326 };
     const z = zScores[confidenceLevel] || 1.645;
     const horizonMultiplier = Math.sqrt(Math.max(1, holdingPeriodDays));
 
-    // Parametric VaR: - (mu * dt - z * sigma * sqrt(dt))
     const parametricVaRPct = Math.max(0, -(meanDailyReturn * holdingPeriodDays - z * dailyVolatility * horizonMultiplier)) * 100;
     const parametricVaRUsd = (parametricVaRPct / 100) * positionValueUsd;
 
-    // Historical VaR: Percentile of actual sorted returns
     const sortedReturns = [...returns].sort((a, b) => a - b);
     const alphaPct = (100 - confidenceLevel) / 100;
     const cutoffIndex = Math.max(0, Math.floor(n * alphaPct));
-    const historicalLossReturn = sortedReturns[cutoffIndex] ?? -0.02; // negative number
+    const historicalLossReturn = sortedReturns[cutoffIndex] ?? -0.02;
     const historicalVaRPct = Math.max(0, -historicalLossReturn * horizonMultiplier * 100);
     const historicalVaRUsd = (historicalVaRPct / 100) * positionValueUsd;
 
-    // Expected Shortfall (CVaR): Average loss beyond the VaR threshold
     const tailLosses = sortedReturns.slice(0, cutoffIndex + 1);
     const meanTailLoss = tailLosses.length > 0 ? tailLosses.reduce((a, b) => a + b, 0) / tailLosses.length : historicalLossReturn;
     const cvarPct = Math.max(0, -meanTailLoss * horizonMultiplier * 100);
     const cvarUsd = (cvarPct / 100) * positionValueUsd;
 
-    // 5. Historical Maximum Drawdown & Series
+    // 5. MAXIMUM DRAWDOWN (MDD) DETAILED TRACKER
     let peak = activeCandles[0].close;
-    let maxDrawdown = 0;
-    const drawdownSeries: Array<{ date: string; dd: number }> = [];
+    let peakDate = activeCandles[0].timestamp;
+    let peakIdx = 0;
 
-    activeCandles.forEach((c) => {
+    let maxDrawdown = 0;
+    let mddPeak = activeCandles[0].close;
+    let mddPeakDate = activeCandles[0].timestamp;
+    let mddPeakIdx = 0;
+    let mddTrough = activeCandles[0].close;
+    let mddTroughDate = activeCandles[0].timestamp;
+    let mddTroughIdx = 0;
+
+    let sumSquaredDd = 0;
+    const drawdownSeries: Array<{
+      date: string;
+      price: number;
+      peak: number;
+      dd: number;
+      lossUsd: number;
+    }> = [];
+
+    activeCandles.forEach((c, idx) => {
       if (c.close > peak) {
         peak = c.close;
+        peakDate = c.timestamp;
+        peakIdx = idx;
       }
       const dd = ((peak - c.close) / peak) * 100;
+      sumSquaredDd += Math.pow(dd, 2);
+
       if (dd > maxDrawdown) {
         maxDrawdown = dd;
+        mddPeak = peak;
+        mddPeakDate = peakDate;
+        mddPeakIdx = peakIdx;
+        mddTrough = c.close;
+        mddTroughDate = c.timestamp;
+        mddTroughIdx = idx;
       }
-      drawdownSeries.push({ date: c.timestamp, dd: -dd });
+
+      drawdownSeries.push({
+        date: c.timestamp,
+        price: c.close,
+        peak,
+        dd: -dd,
+        lossUsd: (peak - c.close) * btcAmount
+      });
     });
+
+    // Check if price recovered from worst MDD trough
+    let recoveryDate: string | null = null;
+    let recoveryIdx: number | null = null;
+    for (let i = mddTroughIdx + 1; i < activeCandles.length; i++) {
+      if (activeCandles[i].close >= mddPeak) {
+        recoveryDate = activeCandles[i].timestamp;
+        recoveryIdx = i;
+        break;
+      }
+    }
+
+    const declineDays = mddTroughIdx - mddPeakIdx;
+    const recoveryDays = recoveryIdx !== null ? recoveryIdx - mddTroughIdx : null;
+    const isRecovered = recoveryIdx !== null;
+
+    const mddLossPerBtc = mddPeak - mddTrough;
+    const mddLossPosition = mddLossPerBtc * btcAmount;
+
+    // Ulcer Index: sqrt(sum(dd^2) / N)
+    const ulcerIndex = Math.sqrt(sumSquaredDd / (activeCandles.length || 1));
 
     // Calmar Ratio: Annualized Return / Max Drawdown
     const calmarRatio = maxDrawdown > 0 ? (annualizedReturn * 100) / maxDrawdown : 0;
+
+    // Current drawdown from ATH
+    const athPrice = Math.max(...activeCandles.map((c) => c.close));
+    const currentDdPct = athPrice > 0 ? ((athPrice - currentPrice) / athPrice) * 100 : 0;
+    const currentDdUsd = (currentDdPct / 100) * positionValueUsd;
+
+    // Top Historical Drawdown Episodes List
+    const drawdownEpisodes: Array<{
+      rank: number;
+      peakDate: string;
+      peakPrice: number;
+      troughDate: string;
+      troughPrice: number;
+      dropPct: number;
+      dropUsd: number;
+      declineDays: number;
+      status: string;
+    }> = [
+      {
+        rank: 1,
+        peakDate: mddPeakDate,
+        peakPrice: mddPeak,
+        troughDate: mddTroughDate,
+        troughPrice: mddTrough,
+        dropPct: maxDrawdown,
+        dropUsd: mddLossPosition,
+        declineDays: declineDays,
+        status: isRecovered ? `Recovered in ${recoveryDays}d` : 'Active / Unrecovered'
+      }
+    ];
+
+    // Identify second worst distinct drawdown episode if applicable
+    let secondWorstDd = 0;
+    let sPeak = activeCandles[0].close;
+    let sPeakDate = activeCandles[0].timestamp;
+    let sTrough = activeCandles[0].close;
+    let sTroughDate = activeCandles[0].timestamp;
+    let sDeclineDays = 0;
+
+    let curP = activeCandles[0].close;
+    let curPDate = activeCandles[0].timestamp;
+    let curPIdx = 0;
+
+    activeCandles.forEach((c, idx) => {
+      if (c.close > curP) {
+        curP = c.close;
+        curPDate = c.timestamp;
+        curPIdx = idx;
+      }
+      const dd = ((curP - c.close) / curP) * 100;
+      // If outside the main MDD window
+      if ((idx < mddPeakIdx || idx > (recoveryIdx ?? activeCandles.length - 1)) && dd > secondWorstDd) {
+        secondWorstDd = dd;
+        sPeak = curP;
+        sPeakDate = curPDate;
+        sTrough = c.close;
+        sTroughDate = c.timestamp;
+        sDeclineDays = idx - curPIdx;
+      }
+    });
+
+    if (secondWorstDd > 2.0) {
+      drawdownEpisodes.push({
+        rank: 2,
+        peakDate: sPeakDate,
+        peakPrice: sPeak,
+        troughDate: sTroughDate,
+        troughPrice: sTrough,
+        dropPct: secondWorstDd,
+        dropUsd: (sPeak - sTrough) * btcAmount,
+        declineDays: sDeclineDays,
+        status: 'Recovered'
+      });
+    }
 
     return {
       returns,
@@ -184,9 +333,26 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
       sortinoRatio,
       maxDrawdown,
       calmarRatio,
-      drawdownSeries
+      drawdownSeries,
+      mddPeak,
+      mddPeakDate,
+      mddPeakIdx,
+      mddTrough,
+      mddTroughDate,
+      mddTroughIdx,
+      mddLossPerBtc,
+      mddLossPosition,
+      declineDays,
+      recoveryDays,
+      recoveryDate,
+      isRecovered,
+      athPrice,
+      currentDdPct,
+      currentDdUsd,
+      ulcerIndex,
+      drawdownEpisodes
     };
-  }, [activeCandles, positionValueUsd, confidenceLevel, holdingPeriodDays, annualRiskFreeRate]);
+  }, [activeCandles, currentPrice, positionValueUsd, btcAmount, confidenceLevel, holdingPeriodDays, annualRiskFreeRate]);
 
   // Distribution histogram buckets for returns
   const histogramBuckets = useMemo(() => {
@@ -219,24 +385,79 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     return Math.max(...histogramBuckets.map((b) => b.count), 1);
   }, [histogramBuckets]);
 
-  // SVG dimensions for underwater drawdown chart
-  const ddWidth = 900;
-  const ddHeight = 160;
-  const ddPadding = { top: 15, right: 35, bottom: 25, left: 55 };
+  // SVG dimensions for Dual MDD & Price Corridor Chart
+  const svgWidth = 920;
+  const priceH = 170;
+  const ddH = 140;
+  const totalSvgH = priceH + ddH + 20;
+  const padding = { top: 25, right: 65, bottom: 25, left: 60 };
 
-  const ddPointsCount = metrics.drawdownSeries.length;
-  const ddScaleX = (idx: number) => ddPadding.left + (idx / (ddPointsCount - 1 || 1)) * (ddWidth - ddPadding.left - ddPadding.right);
-  const ddScaleY = (val: number) => {
-    const minDd = -Math.max(10, metrics.maxDrawdown * 1.1);
-    return ddPadding.top + ((0 - val) / (0 - minDd || 1)) * (ddHeight - ddPadding.top - ddPadding.bottom);
+  const pointsCount = metrics.drawdownSeries.length;
+  const scaleX = (idx: number) => padding.left + (idx / (pointsCount - 1 || 1)) * (svgWidth - padding.left - padding.right);
+
+  // Price Scale Extents
+  const { minP, maxP } = useMemo(() => {
+    if (metrics.drawdownSeries.length === 0) return { minP: 0, maxP: 100000 };
+    const prices = metrics.drawdownSeries.map((d) => d.price);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const span = max - min || 1000;
+    return { minP: Math.max(0, min - span * 0.08), maxP: max + span * 0.08 };
+  }, [metrics.drawdownSeries]);
+
+  const scalePriceY = (val: number) => {
+    const effH = priceH - padding.top - 10;
+    return priceH - 10 - ((val - minP) / (maxP - minP || 1)) * effH;
   };
 
+  // Drawdown Scale Extents (0% to -maxDrawdown * 1.15)
+  const minDd = -Math.max(10, metrics.maxDrawdown * 1.15);
+  const scaleDdY = (val: number) => {
+    const top = priceH + 15;
+    const effH = ddH - padding.bottom;
+    return top + ((0 - val) / (0 - minDd || 1)) * effH;
+  };
+
+  // Price Path
+  const priceLinePath = useMemo(() => {
+    if (metrics.drawdownSeries.length === 0) return '';
+    return metrics.drawdownSeries
+      .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)},${scalePriceY(pt.price)}`)
+      .join(' ');
+  }, [metrics.drawdownSeries, minP, maxP]);
+
+  // Peak ATH Running Line
+  const peakLinePath = useMemo(() => {
+    if (metrics.drawdownSeries.length === 0) return '';
+    return metrics.drawdownSeries
+      .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)},${scalePriceY(pt.peak)}`)
+      .join(' ');
+  }, [metrics.drawdownSeries, minP, maxP]);
+
+  // Shaded MDD Decline Corridor on Price Chart
+  const mddCorridorPath = useMemo(() => {
+    if (metrics.mddPeakIdx >= metrics.mddTroughIdx) return '';
+    const slice = metrics.drawdownSeries.slice(metrics.mddPeakIdx, metrics.mddTroughIdx + 1);
+    const top = slice.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(metrics.mddPeakIdx + i)},${scalePriceY(metrics.mddPeak)}`).join(' ');
+    const btm = slice.slice().reverse().map((pt) => `L ${scaleX(metrics.drawdownSeries.indexOf(pt))},${scalePriceY(pt.price)}`).join(' ');
+    return `${top} ${btm} Z`;
+  }, [metrics.drawdownSeries, metrics.mddPeakIdx, metrics.mddTroughIdx, metrics.mddPeak, minP, maxP]);
+
+  // Underwater Drawdown Area Path
   const ddAreaPath = useMemo(() => {
     if (metrics.drawdownSeries.length === 0) return '';
-    const top = metrics.drawdownSeries.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${ddScaleX(i)},${ddScaleY(pt.dd)}`).join(' ');
-    const close = `L ${ddScaleX(ddPointsCount - 1)},${ddScaleY(0)} L ${ddScaleX(0)},${ddScaleY(0)} Z`;
+    const top = metrics.drawdownSeries.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(i)},${scaleDdY(pt.dd)}`).join(' ');
+    const close = `L ${scaleX(pointsCount - 1)},${scaleDdY(0)} L ${scaleX(0)},${scaleDdY(0)} Z`;
     return `${top} ${close}`;
-  }, [metrics.drawdownSeries, ddPointsCount, metrics.maxDrawdown]);
+  }, [metrics.drawdownSeries, pointsCount, minDd]);
+
+  // Active hovered point
+  const activeHover = useMemo(() => {
+    if (hoveredIdx !== null && metrics.drawdownSeries[hoveredIdx]) {
+      return metrics.drawdownSeries[hoveredIdx];
+    }
+    return metrics.drawdownSeries[metrics.drawdownSeries.length - 1];
+  }, [hoveredIdx, metrics.drawdownSeries]);
 
   return (
     <div className="space-y-6 font-sans">
@@ -246,13 +467,13 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold mb-2 font-mono">
               <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-              Institutional Risk &amp; VaR Engine
+              Maximum Drawdown &amp; Tail Risk Terminal
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
-              Value at Risk (VaR) &amp; Sharpe Ratio Analytics
+              Maximum Drawdown (MDD) Tracker &amp; VaR Analytics
             </h2>
             <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Empirical downside risk estimation, tail-risk Expected Shortfall (CVaR), and risk-adjusted return ratios with customizable holding horizons and flexible historical lookback periods.
+              Track the worst historical peak-to-trough capital declines, analyze recovery durations, and measure tail risk exposures on current Bitcoin holdings.
             </p>
           </div>
 
@@ -409,7 +630,6 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
                 ))}
               </div>
 
-              {/* Custom Day Input */}
               <div className="w-20 relative">
                 <input
                   type="number"
@@ -447,6 +667,345 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
               className="w-full accent-amber-500 cursor-pointer"
             />
           </div>
+        </div>
+      </div>
+
+      {/* MAXIMUM DRAWDOWN (MDD) EXECUTIVE SUMMARY CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Card 1: Worst Historical Peak-to-Trough Decline */}
+        <div className="bg-slate-900 border border-rose-500/30 rounded-2xl p-5 shadow-xl space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-rose-400 flex items-center gap-1.5">
+              <TrendingDown className="w-4 h-4 text-rose-500" />
+              Maximum Drawdown (MDD)
+            </span>
+            <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-mono font-bold border border-rose-500/30">
+              HISTORICAL WORST
+            </span>
+          </div>
+
+          <div className="text-2xl font-bold font-mono text-rose-400">
+            -{metrics.maxDrawdown.toFixed(2)}%
+          </div>
+
+          <div className="text-xs font-mono text-slate-300">
+            -${metrics.mddLossPosition.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} on your position
+          </div>
+
+          <div className="pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-400 space-y-0.5">
+            <div>Peak: <strong className="text-white">${metrics.mddPeak.toLocaleString()}</strong> ({metrics.mddPeakDate})</div>
+            <div>Trough: <strong className="text-rose-400">${metrics.mddTrough.toLocaleString()}</strong> ({metrics.mddTroughDate})</div>
+          </div>
+        </div>
+
+        {/* Card 2: Decline & Recovery Duration */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-amber-400 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-amber-400" />
+              Drawdown Timeline
+            </span>
+            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-mono">
+              CYCLE DURATION
+            </span>
+          </div>
+
+          <div className="text-2xl font-bold font-mono text-white">
+            {metrics.declineDays} Days
+          </div>
+
+          <div className="text-xs text-slate-400">
+            Peak to Valley Capitulation
+          </div>
+
+          <div className="pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between">
+            <span>Recovery Status:</span>
+            <span className={`font-bold ${metrics.isRecovered ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {metrics.isRecovered ? `Recovered in ${metrics.recoveryDays}d` : 'In Drawdown'}
+            </span>
+          </div>
+        </div>
+
+        {/* Card 3: Current Distance from All-Time High */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-cyan-400 flex items-center gap-1.5">
+              <Target className="w-4 h-4 text-cyan-400" />
+              Current Drop from Peak
+            </span>
+            <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-mono">
+              REAL-TIME ATH
+            </span>
+          </div>
+
+          <div className="text-2xl font-bold font-mono text-slate-100">
+            -{metrics.currentDdPct.toFixed(2)}%
+          </div>
+
+          <div className="text-xs text-slate-400">
+            ATH: ${metrics.athPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+
+          <div className="pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+            <span>Gap to New ATH:</span>
+            <span className="text-rose-400 font-bold">-${metrics.currentDdUsd.toFixed(2)} USD</span>
+          </div>
+        </div>
+
+        {/* Card 4: Ulcer Index & Calmar Ratio */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-purple-400 flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-purple-400" />
+              Ulcer Index &amp; Calmar
+            </span>
+            <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px] font-mono">
+              STRESS SCORE
+            </span>
+          </div>
+
+          <div className="text-2xl font-bold font-mono text-purple-400">
+            {metrics.ulcerIndex.toFixed(2)}
+          </div>
+
+          <div className="text-xs text-slate-400">
+            Ulcer Index (Depth × Duration)
+          </div>
+
+          <div className="pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between">
+            <span>Calmar Ratio:</span>
+            <span className="text-emerald-400 font-bold">{metrics.calmarRatio.toFixed(2)}x</span>
+          </div>
+        </div>
+      </div>
+
+      {/* DUAL INTERACTIVE VISUALIZER: PRICE PEAK-TO-TROUGH CORRIDOR & UNDERWATER CURVE */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-rose-400" />
+              Historical Peak-to-Trough Decline &amp; Underwater Drawdown Dual Visualizer
+            </h3>
+            <p className="text-xs text-slate-400">
+              Corridor view showing the exact crash episode from peak to valley and the corresponding underwater drawdown depth
+            </p>
+          </div>
+
+          {/* Interactive HUD */}
+          {activeHover && (
+            <div className="p-2 px-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono flex items-center gap-4">
+              <span>Date: <strong className="text-white">{activeHover.date}</strong></span>
+              <span>Price: <strong className="text-slate-200">${Math.round(activeHover.price).toLocaleString()}</strong></span>
+              <span>Running Peak: <strong className="text-emerald-400">${Math.round(activeHover.peak).toLocaleString()}</strong></span>
+              <span>Drawdown: <strong className="text-rose-400">{activeHover.dd.toFixed(2)}%</strong></span>
+            </div>
+          )}
+        </div>
+
+        {/* Dual SVG Canvas */}
+        <div 
+          className="w-full overflow-x-auto relative cursor-crosshair select-none bg-slate-950/60 rounded-xl p-2 border border-slate-800/80"
+          onMouseLeave={() => setHoveredIdx(null)}
+        >
+          <svg viewBox={`0 0 ${svgWidth} ${totalSvgH}`} className="w-full h-auto min-w-[760px]">
+            <defs>
+              <linearGradient id="mddCorridorGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.05" />
+              </linearGradient>
+              <linearGradient id="underwaterGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.05" />
+              </linearGradient>
+            </defs>
+
+            {/* TOP PANEL: BTC PRICE & RUNNING PEAK */}
+            <g>
+              <text x={padding.left + 5} y={padding.top - 8} fill="#94a3b8" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                BTC Price vs. All-Time Peak ($)
+              </text>
+
+              {/* Price Gridlines */}
+              {[0, 0.5, 1].map((pct) => {
+                const pVal = minP + pct * (maxP - minP);
+                const yPos = scalePriceY(pVal);
+                return (
+                  <g key={pct}>
+                    <line x1={padding.left} y1={yPos} x2={svgWidth - padding.right} y2={yPos} stroke="#1e293b" strokeDasharray="3 3" />
+                    <text x={padding.left - 8} y={yPos + 4} textAnchor="end" fill="#64748b" fontSize="10" fontFamily="monospace">
+                      ${Math.round(pVal).toLocaleString()}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* MDD Danger Corridor */}
+              {mddCorridorPath && (
+                <path d={mddCorridorPath} fill="url(#mddCorridorGrad)" stroke="#f43f5e" strokeWidth="1" strokeDasharray="3 3" opacity="0.8" />
+              )}
+
+              {/* Peak ATH Running Step Line */}
+              <path d={peakLinePath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeDasharray="4 4" opacity="0.7" />
+
+              {/* Price Line */}
+              <path d={priceLinePath} fill="none" stroke="#38bdf8" strokeWidth="2" />
+
+              {/* Peak Flag Marker */}
+              {metrics.mddPeakIdx >= 0 && (
+                <g transform={`translate(${scaleX(metrics.mddPeakIdx)}, ${scalePriceY(metrics.mddPeak)})`}>
+                  <circle r="5" fill="#10b981" stroke="#0f172a" strokeWidth="1.5" />
+                  <rect x="-40" y="-24" width="80" height="18" rx="4" fill="#0f172a" stroke="#10b981" strokeWidth="1" />
+                  <text y="-12" textAnchor="middle" fill="#10b981" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                    PEAK ${Math.round(metrics.mddPeak / 1000)}k
+                  </text>
+                </g>
+              )}
+
+              {/* Trough Valley Flag Marker */}
+              {metrics.mddTroughIdx >= 0 && (
+                <g transform={`translate(${scaleX(metrics.mddTroughIdx)}, ${scalePriceY(metrics.mddTrough)})`}>
+                  <circle r="5" fill="#f43f5e" stroke="#0f172a" strokeWidth="1.5" />
+                  <rect x="-45" y="10" width="90" height="18" rx="4" fill="#0f172a" stroke="#f43f5e" strokeWidth="1" />
+                  <text y="22" textAnchor="middle" fill="#f43f5e" fontSize="9" fontWeight="bold" fontFamily="monospace">
+                    TROUGH -{metrics.maxDrawdown.toFixed(1)}%
+                  </text>
+                </g>
+              )}
+            </g>
+
+            {/* SEPARATOR LINE */}
+            <line x1={padding.left} y1={priceH + 5} x2={svgWidth - padding.right} y2={priceH + 5} stroke="#334155" strokeWidth="1" />
+
+            {/* BOTTOM PANEL: UNDERWATER DRAWDOWN CURVE */}
+            <g transform={`translate(0, 0)`}>
+              <text x={padding.left + 5} y={priceH + 20} fill="#f43f5e" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                Underwater Drawdown (%)
+              </text>
+
+              {/* 0% Line */}
+              <line x1={padding.left} y1={scaleDdY(0)} x2={svgWidth - padding.right} y2={scaleDdY(0)} stroke="#64748b" strokeWidth="1" />
+              <text x={padding.left - 8} y={scaleDdY(0) + 3} textAnchor="end" fill="#94a3b8" fontSize="10" fontFamily="monospace">
+                0%
+              </text>
+
+              {/* Max Drawdown Cutoff Line */}
+              <line x1={padding.left} y1={scaleDdY(-metrics.maxDrawdown)} x2={svgWidth - padding.right} y2={scaleDdY(-metrics.maxDrawdown)} stroke="#f43f5e" strokeDasharray="3 3" strokeWidth="1" opacity="0.8" />
+              <text x={padding.left - 8} y={scaleDdY(-metrics.maxDrawdown) + 3} textAnchor="end" fill="#f43f5e" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                -{Math.round(metrics.maxDrawdown)}%
+              </text>
+
+              {/* Shaded Underwater Path */}
+              <path d={ddAreaPath} fill="url(#underwaterGrad)" stroke="#f43f5e" strokeWidth="1.75" />
+            </g>
+
+            {/* Interactive Crosshair & Hover Triggers */}
+            {metrics.drawdownSeries.map((pt, i) => {
+              const cx = scaleX(i);
+              return (
+                <rect
+                  key={i}
+                  x={cx - 10}
+                  y={padding.top}
+                  width="20"
+                  height={totalSvgH - padding.top - padding.bottom}
+                  fill="transparent"
+                  onMouseEnter={() => setHoveredIdx(i)}
+                />
+              );
+            })}
+
+            {/* Active Vertical Crosshair */}
+            {hoveredIdx !== null && (
+              <line
+                x1={scaleX(hoveredIdx)}
+                y1={padding.top}
+                x2={scaleX(hoveredIdx)}
+                y2={totalSvgH - 15}
+                stroke="#94a3b8"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+                opacity="0.85"
+              />
+            )}
+          </svg>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-400 pt-1">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-cyan-400">
+              <span className="w-3 h-0.5 bg-cyan-400 inline-block" />
+              BTC Price
+            </span>
+            <span className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-3 h-0.5 bg-emerald-400 inline-block border-b border-dashed border-emerald-400" />
+              Historical High Water Mark (ATH)
+            </span>
+            <span className="flex items-center gap-1.5 text-rose-400">
+              <span className="w-3 h-3 bg-rose-500/20 border border-rose-500 rounded-sm inline-block" />
+              Worst MDD Corridor (-{metrics.maxDrawdown.toFixed(1)}%)
+            </span>
+          </div>
+
+          <span className="text-slate-500">Hover over any candle to inspect running drawdown depth</span>
+        </div>
+      </div>
+
+      {/* TOP HISTORICAL DRAWDOWN EPISODES LEDGER */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-2 border-b border-slate-800">
+          <History className="w-4 h-4 text-amber-400" />
+          Worst Historical Drawdown Episodes Breakdown
+        </h3>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400">
+                <th className="py-2.5 px-3">Episode Rank</th>
+                <th className="py-2.5 px-3">Peak Date &amp; Price</th>
+                <th className="py-2.5 px-3">Trough Date &amp; Price</th>
+                <th className="py-2.5 px-3 text-right">Decline (%)</th>
+                <th className="py-2.5 px-3 text-right">Holdings Loss ($)</th>
+                <th className="py-2.5 px-3 text-right">Capitulation Duration</th>
+                <th className="py-2.5 px-3 text-right">Recovery Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {metrics.drawdownEpisodes.map((ep) => (
+                <tr key={ep.rank} className="hover:bg-slate-800/40 transition-colors">
+                  <td className="py-2.5 px-3 font-bold text-white flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-[10px]">
+                      #{ep.rank}
+                    </span>
+                    <span>{ep.rank === 1 ? 'Global Maximum Drawdown' : 'Secondary Drawdown'}</span>
+                  </td>
+                  <td className="py-2.5 px-3 text-slate-300">
+                    <div>{ep.peakDate}</div>
+                    <div className="text-[10px] text-slate-500">${ep.peakPrice.toLocaleString()}</div>
+                  </td>
+                  <td className="py-2.5 px-3 text-rose-400">
+                    <div>{ep.troughDate}</div>
+                    <div className="text-[10px] text-slate-500">${ep.troughPrice.toLocaleString()}</div>
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-bold text-rose-400">
+                    -{ep.dropPct.toFixed(2)}%
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-bold text-rose-400">
+                    -${ep.dropUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="py-2.5 px-3 text-right text-slate-300">
+                    {ep.declineDays} Days
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ep.status.includes('Recovered') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                      {ep.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -522,17 +1081,17 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
           </div>
         </div>
 
-        {/* Max Drawdown */}
+        {/* Calmar Ratio */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg space-y-1">
           <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Historical Max DD</span>
-            <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+            <span>Calmar Ratio</span>
+            <AwardIcon />
           </div>
-          <div className="text-lg font-bold font-mono text-rose-400 mt-0.5">
-            -{metrics.maxDrawdown.toFixed(2)}%
+          <div className="text-lg font-bold font-mono text-emerald-400 mt-0.5">
+            {metrics.calmarRatio.toFixed(2)}x
           </div>
           <div className="text-[10px] text-slate-400">
-            Calmar: {metrics.calmarRatio.toFixed(2)}x
+            Annual Return / MDD
           </div>
         </div>
       </div>
@@ -602,86 +1161,6 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
         </div>
       </div>
 
-      {/* Historical Underwater Drawdown Chart */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-rose-400" />
-              Underwater Drawdown Curve ({lookbackMode.toUpperCase()} Period)
-            </h3>
-            <p className="text-xs text-slate-400">
-              Depth and recovery duration of capital drawdowns during selected historical period
-            </p>
-          </div>
-          <span className="text-xs font-mono text-rose-400 font-bold">
-            Period Max Drop: -{metrics.maxDrawdown.toFixed(2)}%
-          </span>
-        </div>
-
-        {/* SVG Underwater Drawdown */}
-        <div className="w-full overflow-x-auto">
-          <svg viewBox={`0 0 ${ddWidth} ${ddHeight}`} className="w-full h-auto min-w-[700px]">
-            <defs>
-              <linearGradient id="underwaterGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.05" />
-              </linearGradient>
-            </defs>
-
-            {/* Zero Line */}
-            <line
-              x1={ddPadding.left}
-              y1={ddScaleY(0)}
-              x2={ddWidth - ddPadding.right}
-              y2={ddScaleY(0)}
-              stroke="#64748b"
-              strokeWidth="1"
-            />
-            <text
-              x={ddPadding.left - 8}
-              y={ddScaleY(0) + 3}
-              textAnchor="end"
-              fill="#94a3b8"
-              fontSize="10"
-              fontFamily="monospace"
-            >
-              0%
-            </text>
-
-            {/* Max Drawdown Threshold Reference */}
-            <line
-              x1={ddPadding.left}
-              y1={ddScaleY(-metrics.maxDrawdown)}
-              x2={ddWidth - ddPadding.right}
-              y2={ddScaleY(-metrics.maxDrawdown)}
-              stroke="#f43f5e"
-              strokeDasharray="4 4"
-              strokeWidth="1"
-              opacity="0.7"
-            />
-            <text
-              x={ddPadding.left - 8}
-              y={ddScaleY(-metrics.maxDrawdown) + 3}
-              textAnchor="end"
-              fill="#f43f5e"
-              fontSize="10"
-              fontFamily="monospace"
-            >
-              -{Math.round(metrics.maxDrawdown)}%
-            </text>
-
-            {/* Shaded Underwater Area */}
-            <path
-              d={ddAreaPath}
-              fill="url(#underwaterGrad)"
-              stroke="#f43f5e"
-              strokeWidth="1.5"
-            />
-          </svg>
-        </div>
-      </div>
-
       {/* Stress Testing & Scenario Shock Simulator */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-3 border-b border-slate-800">
@@ -748,3 +1227,11 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
     </div>
   );
 };
+
+// Helper Icon component for Calmar
+const AwardIcon = () => (
+  <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="8" r="6" />
+    <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+  </svg>
+);
