@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { CandleData } from '../types';
-// Added import for modular strategy functions
 import { getSignal, StrategyParams } from '../utils/strategy';
+import { CandlestickChart } from './CandlestickChart';
 
 import { 
   Play, 
@@ -73,13 +73,11 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
 
     const firstPrice = candles[0]?.close || 1;
 
-    candles.forEach((c, idx) => {
+    candles.forEach((c: CandleData, idx: number) => {
       const p = c.close;
-      let isBuySignal = false;
-      let isSellSignal = false;
 
       // Strategy signal logic
-      const { buy: isBuySignal, sell: isSellSignal } = getSignal(c, strategyModel as any, { threshold });
+      let { buy: isBuySignal, sell: isSellSignal } = getSignal(c, strategyModel, { threshold });
 
       // Check Stop Loss & Take Profit if currently in position
       let exitReason: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' = 'SIGNAL';
@@ -317,7 +315,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
             <input
               type="number"
               value={initialCapital}
-              onChange={(e) => setInitialCapital(Math.max(100, Number(e.target.value)))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInitialCapital(Math.max(100, Number(e.target.value)))}
               className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white w-full text-right focus:border-amber-500 focus:outline-none"
             />
           </div>
@@ -328,7 +326,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
               type="number"
               step="0.0005"
               value={feeRate}
-              onChange={(e) => setFeeRate(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeeRate(Number(e.target.value))}
               className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white w-full text-right focus:border-amber-500 focus:outline-none"
             />
           </div>
@@ -345,7 +343,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
                 max="0.65"
                 step="0.01"
                 value={threshold}
-                onChange={(e) => setThreshold(Number(e.target.value))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThreshold(Number(e.target.value))}
                 className="w-full accent-amber-500 cursor-pointer"
               />
             </div>
@@ -360,7 +358,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
             <span className="text-slate-400 block mb-1">Stop Loss</span>
             <select
               value={stopLossPct}
-              onChange={(e) => setStopLossPct(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStopLossPct(Number(e.target.value))}
               className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white w-full focus:outline-none focus:border-amber-500"
             >
               <option value="0">Disabled (None)</option>
@@ -374,7 +372,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
             <span className="text-slate-400 block mb-1">Take Profit</span>
             <select
               value={takeProfitPct}
-              onChange={(e) => setTakeProfitPct(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTakeProfitPct(Number(e.target.value))}
               className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-white w-full focus:outline-none focus:border-amber-500"
             >
               <option value="0">Disabled (None)</option>
