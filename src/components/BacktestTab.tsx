@@ -32,7 +32,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
   const [initialCapital, setInitialCapital] = useState<number>(1000);
   const [feeRate, setFeeRate] = useState<number>(0.001); // 0.1%
   const [threshold, setThreshold] = useState<number>(0.51);
-  const [strategyModel, setStrategyModel] = useState<'lstm' | 'astronacci' | 'ema_cross' | 'rsi_reversal' | 'bb_breakout'>('lstm');
+  const [strategyModel, setStrategyModel] = useState<'lstm' | 'astronacci' | 'ema_cross' | 'rsi_reversal' | 'bb_breakout' | 'macd_cross'>('lstm');
   const [stopLossPct, setStopLossPct] = useState<number>(0); // 0 = disabled
   const [takeProfitPct, setTakeProfitPct] = useState<number>(0); // 0 = disabled
   const [filterTradeType, setFilterTradeType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
@@ -288,7 +288,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
               { id: 'astronacci', label: 'Astronacci Apogee', desc: 'Lunar ±2d + RSI' },
               { id: 'ema_cross', label: 'EMA 9/21 Ribbon', desc: 'Trend crossover' },
               { id: 'rsi_reversal', label: 'RSI Reversal (14)', desc: '35 oversold / 65 exit' },
-              { id: 'bb_breakout', label: 'Bollinger Breakout', desc: 'Mid-band momentum' }
+              { id: 'macd_cross', label: 'MACD Cross', desc: 'MACD vs Signal' },
             ].map((strat) => (
               <button
                 key={strat.id}
