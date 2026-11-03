@@ -1,0 +1,11 @@
+{
+  "astronacci": {
+    "v1": "model_astronacci_v1.keras",
+    "v2": "model_astronacci_v2.keras"
+  },
+  "lstm": {
+    "v1": "btc_lstm_v1.keras",
+    "v5_2_1": "btc_lstm_v5_2_1.keras"
+  }
+}
+

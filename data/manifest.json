@@ -1,0 +1,6 @@
+{
+  "btc_historical_data.csv": "https://example.com/data/btc_historical_data.csv",
+  "btc_lstm_v5_2_1.keras": "https://example.com/models/btc_lstm_v5_2_1.keras",
+  "model_astronacci_v2.keras": "https://example.com/models/model_astronacci_v2.keras"
+}
+

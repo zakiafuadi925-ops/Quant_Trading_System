@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { CandleData } from '../types';
-import { CandlestickChart } from './CandlestickChart';
+// Added import for modular strategy functions
+import { getSignal, StrategyParams } from '../utils/strategy';
+
 import { 
   Play, 
   RotateCcw, 
@@ -77,27 +79,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
       let isSellSignal = false;
 
       // Strategy signal logic
-      if (strategyModel === 'lstm') {
-        const prob = c.directionProb ?? 0.5;
-        isBuySignal = prob >= threshold;
-        isSellSignal = prob < threshold;
-      } else if (strategyModel === 'astronacci') {
-        // Buy during Apogee window or retrograde with oversold/recovery RSI
-        isBuySignal = Boolean(c.isApogee && (c.rsi < 48 || c.macdHist > 0));
-        isSellSignal = Boolean(!c.isApogee && c.rsi > 65);
-      } else if (strategyModel === 'ema_cross') {
-        // Golden Cross EMA 9 / EMA 21
-        isBuySignal = c.ema9 > c.ema21;
-        isSellSignal = c.ema9 < c.ema21;
-      } else if (strategyModel === 'rsi_reversal') {
-        // Mean Reversion: Buy oversold < 35, Sell overbought > 65
-        isBuySignal = c.rsi < 35;
-        isSellSignal = c.rsi > 65;
-      } else if (strategyModel === 'bb_breakout') {
-        // Bollinger Breakout / Squeeze
-        isBuySignal = c.close > c.bbMid && c.bbPosition > 0.5;
-        isSellSignal = c.close < c.bbMid;
-      }
+      const { buy: isBuySignal, sell: isSellSignal } = getSignal(c, strategyModel as any, { threshold });
 
       // Check Stop Loss & Take Profit if currently in position
       let exitReason: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' = 'SIGNAL';

@@ -1,75 +1,225 @@
 # Bitcoin Research & Quantitative Trading Lab
 
-A high-performance interactive cryptocurrency quantitative research platform ported to **React 19**, **Vite**, **TypeScript**, and **Tailwind CSS v4**.
-
-Originally developed by Zaki Afuadi as a multi-stage Python research workspace combining **Astronacci Cycle Analysis**, **Keras/TensorFlow Deep Learning (LSTM v1 & v5.2.1)**, **Monte Carlo Stochastic Projections (GBM)**, and **Multi-Asset Rebalancing & Grid Trading**, this application has been fully ported into a modern, responsive web application.
+A high‑performance interactive cryptocurrency quantitative research platform built with **React 19**, **Vite**, **TypeScript**, and **Tailwind CSS v4**.  The application ports a multi‑stage Python research workflow (Astronacci cycle analysis, LSTM deep learning, Monte‑Carlo stochastic projections, multi‑asset rebalancing & grid trading) into a modern, responsive web UI.
 
 ---
 
-## 🚀 Key Modules & Capabilities
+## 📦 Key Modules & Capabilities
 
-### 1. Algorithmic Backtesting Lab (`overview`)
-- Simulates trading logic from `backtest_from_python.py`
-- Realistic order execution modeling exchange trading fees (0.1% default) and cash/coin balance tracking
-- Interactive Signal Threshold tuning (0.30 - 0.65)
-- Real-time Strategy Equity curve vs. Buy & Hold benchmark curve
-- Metrics: Net Profit, ROI %, Win Rate %, Profit Factor, Max Drawdown (MDD), and Alpha spread
-- Filterable execution trade ledger (BUY, SELL, ALL)
-
-### 2. Astronacci Cycle & Apogee Intelligence (`astronacci`)
-- Empirical Apogee window analysis across ±1, ±2, ±3, and ±5 days with two-sample t-test statistical significance
-- Proves statistical alpha during lunar apogee windows (+0.395% inside vs +0.118% outside, p=0.045*)
-- 3-Tier Confluence Strategy: Celestial Timing Trigger + Momentum Mean Reversion (RSI & MACD) + Volatility Envelope (Bollinger Bands)
-- Planetary resonance harmonic monitoring (Jupiter and Saturn orbital harmonic sine waves, Venus/Mercury retrograde cycles)
-
-### 3. Deep Learning Model Observatory (`lstm`)
-- Architecture comparisons between Model v1 (Astronacci Hybrid LSTM) and Model v5.2.1 (Bidirectional Return Forecaster)
-- Full 17-dimensional quantitative feature vector inspector (lookback: 60 periods)
-- Interactive Threshold Sweep optimization based on `threshold_sweep_results.csv`
-- Actual price vs. Model forecast feed with prediction delta and directional probability
-
-### 4. Monte Carlo Stochastic Projection Engine (`monte-carlo`)
-- Geometric Brownian Motion (GBM) simulation using historical 60-day drift ($\mu = 0.0046$) and volatility ($\sigma = 0.0218$)
-- Simulates 1,000 to 10,000 future price paths across 7, 14, 28, and 60-day horizons
-- Multi-quantile confidence fan chart (5th, 25th, 50th median, 75th, and 95th percentiles)
-- Risk analytics: Loss probability, probability of >20% and >50% gains, Value at Risk (VaR 95%), and Conditional Value at Risk (CVaR / Expected Shortfall)
-
-### 5. Multi-Asset Portfolio Tracker & Rebalancer (`portfolio`)
-- Manages portfolio across BTC, ETH, SOL, and USDT based on `portofolio_config.json`
-- Real-time target vs actual weight allocation variance bars
-- One-click automatic rebalancing calculation generating exact buy/sell orders
-- Price alerts and risk parameters (Max drawdown 20%, Stop loss 10%, Take profit 25%)
-- Historical trade ledger ported from `trade_history.csv`
-
-### 6. Spot Grid Trading Simulator (`grid`)
-- Implements the long-only spot grid model from `grid_trading.py`
-- Configurable grid spacing % (0.5% - 3.5%), number of grid levels, and allocated capital
-- Visual Grid Ladder displaying pending buy limit and sell target orders
-- Interactive tick simulator to test volatility harvesting and track accumulated grid profits
-
-### 7. Interactive Research Curriculum (`modules`)
-- Interactive documentation of Modules 1 through 5:
-  - **Module 1**: Python Trading Fundamentals (Data types, watchlists, alerts)
-  - **Module 2**: Advanced Control Flow & Modular Trading Tools
-  - **Module 3**: Real Crypto Market Data & Persistence (CCXT, returns, portfolio JSON)
-  - **Module 4**: Time Series Analysis, Matplotlib/Plotly, and Astronacci Cycles
-  - **Module 5**: Automated Quant Trading System & Intelligence Reporting
-- Interactive test runner allowing live function execution
+| Module | Description |
+|--------|-------------|
+| **Backtesting Lab** (`overview`) | Simulates trading logic, order‑execution fees, equity‑curve chart, KPI metrics, and filterable trade ledger. |
+| **Astronacci Cycle** (`astronacci`) | Statistical alpha analysis around lunar apogee windows, planetary harmonic monitoring, and confluence strategy. |
+| **LSTM Model Observatory** (`lstm`) | Compare v1 (Astronacci hybrid) vs v5.2.1 (bidirectional return forecaster), inspect 17‑dimensional feature vectors, and sweep thresholds. |
+| **Monte‑Carlo Engine** (`monte-carlo`) | GBM simulation (1 k‑10 k paths) over 7‑60 day horizons with confidence fan‑charts and VaR/CVaR analytics. |
+| **Portfolio Tracker & Rebalancer** (`portfolio`) | Real‑time weight allocation, automatic rebalancing calculations, alerts, and trade‑ledger view. |
+| **Grid Trading Simulator** (`grid`) | Configurable long‑only spot‑grid model with interactive ladder visualisation. |
+| **Interactive Research Curriculum** (`modules`) | Guided notebooks for Modules 1‑5 (Python fundamentals → automated quant trading). |
 
 ---
 
 ## 🛠️ Development & Build
 
 ```bash
-# Install dependencies
-npm install
+# 1️⃣ Install dependencies (Node & Python)
+npm ci                     # installs exact versions from package‑lock.json
+# optional: set up a Python venv for notebooks & model scripts
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt   # create this file if missing
 
-# Start development server
+# 2️⃣ Run the development server (Vite) – listens on http://localhost:3000
 npm run dev
 
-# Run TypeScript linter
-npm run lint
-
-# Build production bundle
-npm run build
+# 3️⃣ (Optional) Start the lightweight API server used by the UI
+npm run server   # defined in package.json (ts-node server.ts)
 ```
+
+### Scripts
+| Script | Purpose |
+|--------|---------|
+| `dev` | Starts Vite dev server (HMR enabled by default). |
+| `build` | Produces a production bundle in `dist/`. |
+| `lint` | Runs ESLint/Prettier checks. |
+| `server` | Starts the Node/TS API server (exposes `/api/crypto`). |
+| `data:refresh` | (To be added) Executes notebooks head‑less to pull fresh market data and regenerate CSV/NPY artifacts. |
+
+---
+
+## ⚙️ Configuration
+
+Create a local `.env` file (or copy the example below) with the required environment variables:
+
+```env
+# API endpoint for market data (e.g. CoinGecko, Binance, etc.)
+CRYPTO_API_BASE_URL=https://api.example.com
+# API key if the provider requires authentication
+CRYPTO_API_KEY=your_api_key_here
+
+# Optional: disable Vite HMR (useful in CI or low‑resource environments)
+DISABLE_HMR=false
+```
+
+The project already ships an `.env.example` you can copy:
+
+```bash
+cp .env.example .env
+```
+
+> **Note:** Never commit real secrets; `.env` is ignored via `.gitignore`.
+
+---
+
+## 📂 Data & Model Management
+
+The repository currently contains many CSV/NPY/Keras model files. To keep the Git history lightweight we recommend:
+
+1. **Move large assets to external storage** (e.g., an S3 bucket or Google Drive).  Store only a small lookup table (`data/manifest.json`) that maps logical names → URLs.
+2. **Enable Git LFS** for any remaining binary model files (`*.keras`, `*.h5`).
+3. **Add a data‑download script** (`scripts/download_data.sh`) that fetches the assets at runtime.
+
+A simple manifest example (`data/manifest.json`):
+```json
+{
+  "btc_historical_data.csv": "https://my-bucket.s3.amazonaws.com/btc_historical_data.csv",
+  "btc_lstm_v5_2_1.keras": "https://my-bucket.s3.amazonaws.com/models/btc_lstm_v5_2_1.keras"
+}
+```
+
+---
+
+## 🧪 Testing
+
+At the moment the repo lacks automated tests.  Adding a test suite will improve reliability and enable CI checks.
+
+- **TypeScript**: Use **Jest** with `ts-jest` for unit tests of utilities (`src/utils/ntechnicalIndicators.ts`, React components, API wrappers).
+- **Python**: Use **pytest** for notebook‑derived scripts, model‑training pipelines, and data‑cleaning functions.
+
+Create a `tests/` folder and add a basic example:
+```tsx
+// tests/indicator.test.ts
+import { ema } from '../src/utils/ntechnicalIndicators';
+
+test('EMA computes correct length', () => {
+  const series = [1,2,3,4,5];
+  const result = ema(series, 3);
+  expect(result.length).toBe(series.length);
+});
+```
+
+---
+
+## 📦 CI / GitHub Actions
+
+A minimal CI workflow (`.github/workflows/ci.yml`) can:
+1. Install Node & Python dependencies.
+2. Run lint & type‑checking.
+3. Execute Jest tests.
+4. Run `pytest` on Python notebooks (via `nbconvert` to scripts).
+5. Optionally build the production bundle.
+
+---
+
+## 📚 Model Version Manifest
+
+Because several Astronacci/LSTM models coexist, a manifest helps the UI pick the right version:
+```json
+// models/manifest.json
+{
+  "astronacci": {
+    "v1": "model_astronacci_v1.keras",
+    "v2": "model_astronacci_v2.keras"
+  },
+  "lstm": {
+    "v1": "btc_lstm_v1.keras",
+    "v5_2_1": "btc_lstm_v5_2_1.keras"
+  }
+}
+```
+Load this file in the React app to populate a drop‑down selector for model choice.
+
+---
+
+## 📜 License
+
+Add an appropriate open‑source license (e.g., MIT) and a `LICENSE` file.
+
+---
+
+## ✅ Next Steps (you can pick one to start)
+1. **Add `.env.example`** – a quick file with placeholder keys.
+2. **Create `models/manifest.json`** – formalise model versioning.
+3. **Introduce a small `download_data.sh` script** and a `data/manifest.json` for external assets.
+4. **Add a basic Jest test** for a utility function.
+5. **Set up a GitHub Actions CI workflow**.
+6. **Enable Git LFS** for heavy model files.
+
+Let me know which of these you’d like to tackle first, or if you’d like me to implement several of them automatically.
+---
+
+## 🧪 Testing
+
+At the moment the repo lacks automated tests.  Adding a test suite will improve reliability and enable CI checks.
+
+- **TypeScript**: Use **Jest** with `ts-jest` for unit tests of utilities (`src/utils/ntechnicalIndicators.ts`, React components, API wrappers).
+- **Python**: Use **pytest** for notebook‑derived scripts, model‑training pipelines, and data‑cleaning functions.
+
+Create a `tests/` folder and add a basic example:
+```tsx
+// tests/indicator.test.ts
+import { ema } from '../src/utils/ntechnicalIndicators';
+
+test('EMA computes correct length', () => {
+  const series = [1,2,3,4,5];
+  const result = ema(series, 3);
+  expect(result.length).toBe(series.length);
+});
+```
+
+---
+
+## 📦 CI / GitHub Actions
+
+A minimal CI workflow (`.github/workflows/ci.yml`) can:
+1. Install Node & Python dependencies.
+2. Run lint & type‑checking.
+3. Execute Jest tests.
+4. Run `pytest` on Python notebooks (via `nbconvert` to scripts).
+5. Optionally build the production bundle.
+
+---
+
+## 📚 Model Version Manifest
+
+Because several Astronacci/LSTM models coexist, a manifest helps the UI pick the right version:
+```json
+// models/manifest.json
+{
+  "astronacci": {
+    "v1": "model_astronacci_v1.keras",
+    "v2": "model_astronacci_v2.keras"
+  },
+  "lstm": {
+    "v1": "btc_lstm_v1.keras",
+    "v5_2_1": "btc_lstm_v5_2_1.keras"
+  }
+}
+```
+Load this file in the React app to populate a drop‑down selector for model choice.
+
+---
+
+## 📜 License
+
+Add an appropriate open‑source license (e.g., MIT) and a `LICENSE` file.
+
+---
+
+## ✅ Next Steps (you can pick one to start)
+1. **Add `.env.example`** – a quick file with placeholder keys.
+2. **Create `models/manifest.json`** – formalise model versioning.
+3. **Introduce a small `download_data.sh` script** and a `data/manifest.json` for external assets.
+4. **Add a basic Jest test** for a utility function.
+5. **Set up a GitHub Actions CI workflow**.
+6. **Enable Git LFS** for heavy model files.
+
+Let me know which of these you’d like to tackle first, or if you’d like me to implement several of them automatically.
