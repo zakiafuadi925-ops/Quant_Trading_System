@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CandleData } from '../types';
-import { getSignal, StrategyParams } from '../utils/strategy';
+import { getSignal, StrategyParams, StrategyModel } from '../utils/strategy';
 import { CandlestickChart } from './CandlestickChart';
 
 import { 
@@ -32,7 +32,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
   const [initialCapital, setInitialCapital] = useState<number>(1000);
   const [feeRate, setFeeRate] = useState<number>(0.001); // 0.1%
   const [threshold, setThreshold] = useState<number>(0.51);
-  const [strategyModel, setStrategyModel] = useState<'lstm' | 'astronacci' | 'ema_cross' | 'rsi_reversal' | 'bb_breakout' | 'macd_cross'>('lstm');
+  const [strategyModel, setStrategyModel] = useState<StrategyModel>('lstm');
   const [stopLossPct, setStopLossPct] = useState<number>(0); // 0 = disabled
   const [takeProfitPct, setTakeProfitPct] = useState<number>(0); // 0 = disabled
   const [filterTradeType, setFilterTradeType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
@@ -280,17 +280,19 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
         {/* Strategy Selection Pills */}
         <div className="space-y-2">
           <span className="text-xs font-semibold text-slate-300">Select Backtest Strategy Model:</span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {[
               { id: 'lstm', label: 'LSTM Neural Model', desc: 'Probability threshold' },
               { id: 'astronacci', label: 'Astronacci Apogee', desc: 'Lunar ±2d + RSI' },
               { id: 'ema_cross', label: 'EMA 9/21 Ribbon', desc: 'Trend crossover' },
-              { id: 'rsi_reversal', label: 'RSI Reversal (14)', desc: '35 oversold / 65 exit' },
+              { id: 'trend_filter', label: 'Trend Filter (EMA 200)', desc: 'Macro 200 + EMA 9/21' },
               { id: 'macd_cross', label: 'MACD Cross', desc: 'MACD vs Signal' },
+              { id: 'rsi_reversal', label: 'RSI Reversal (14)', desc: '35 oversold / 65 exit' },
+              { id: 'bb_breakout', label: 'BB Breakout', desc: 'Bollinger Bands & Mid' },
             ].map((strat) => (
               <button
                 key={strat.id}
-                onClick={() => setStrategyModel(strat.id as any)}
+                onClick={() => setStrategyModel(strat.id as StrategyModel)}
                 className={`p-3 rounded-xl border text-left transition-all ${
                   strategyModel === strat.id
                     ? 'bg-amber-500/15 border-amber-500/50 text-white shadow-md shadow-amber-500/10'

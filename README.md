@@ -27,9 +27,10 @@ Trading signals are modularized under [`src/utils/strategy.ts`](file:///mnt/data
 1. **LSTM Directional Model (`lstm`)**: Emits signals based on predicted direction probability evaluated against a configurable threshold.
 2. **Astronacci Confluence (`astronacci`)**: Combines lunar apogee windows with momentum confirmation (RSI < 48 or positive MACD histogram for entry; RSI > 65 outside apogee for exit).
 3. **EMA Cross (`ema_cross`)**: Golden cross / death cross between 9 EMA and 21 EMA.
-4. **RSI Reversal (`rsi_reversal`)**: Mean reversion targeting oversold (RSI < 35) and overbought (RSI > 65) extremes.
-5. **Bollinger Bands Breakout (`bb_breakout`)**: Volatility breakouts relative to moving average mid-band and band percentage positioning.
-6. **MACD Cross (`macd_cross`)**: Dynamic trend-following signal triggered by crossover between the MACD line and the 9-period signal line.
+4. **Trend-Filtered Momentum (`trend_filter`)**: Macro regime filter combining the 200-day EMA with 9/21 EMA crossover. Prevents bear-market traps by requiring `close > ema200` for long entries.
+5. **RSI Reversal (`rsi_reversal`)**: Mean reversion targeting oversold (RSI < 35) and overbought (RSI > 65) extremes.
+6. **Bollinger Bands Breakout (`bb_breakout`)**: Volatility breakouts relative to moving average mid-band and band percentage positioning.
+7. **MACD Cross (`macd_cross`)**: Dynamic trend-following signal triggered by crossover between the MACD line and the 9-period signal line.
 
 ### Adding New Strategies
 To add a new strategy:

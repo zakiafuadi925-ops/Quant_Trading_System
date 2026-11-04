@@ -4,6 +4,15 @@ export type StrategyParams = {
   threshold?: number; // for LSTM
 };
 
+export type StrategyModel = 
+  | 'lstm' 
+  | 'astronacci' 
+  | 'ema_cross' 
+  | 'rsi_reversal' 
+  | 'bb_breakout' 
+  | 'macd_cross' 
+  | 'trend_filter';
+
 export function getSignalLSTM(candle: CandleData, params: StrategyParams) {
   const prob = candle.directionProb ?? 0.5;
   const thresh = params.threshold ?? 0.51;
@@ -35,9 +44,19 @@ export function getSignalMACDCross(candle: CandleData) {
   return { buy: candle.macd > candle.macdSignal, sell: candle.macd < candle.macdSignal };
 }
 
+export function getSignalTrendFiltered(candle: CandleData) {
+  // Macro filter: price above 200 EMA defines bullish macro regime
+  // Combined with EMA 9 crossing above EMA 21 to prevent bear-market whipsaws
+  const isMacroBull = candle.close > candle.ema200;
+  const isBullCross = candle.ema9 > candle.ema21;
+  const buy = isMacroBull && isBullCross;
+  const sell = !isMacroBull || candle.ema9 < candle.ema21;
+  return { buy, sell };
+}
+
 export function getSignal(
   candle: CandleData,
-  model: 'lstm' | 'astronacci' | 'ema_cross' | 'rsi_reversal' | 'bb_breakout' | 'macd_cross',
+  model: StrategyModel,
   params: StrategyParams = {}
 ) {
   switch (model) {
@@ -53,6 +72,8 @@ export function getSignal(
       return getSignalBBBreakout(candle);
     case 'macd_cross':
       return getSignalMACDCross(candle);
+    case 'trend_filter':
+      return getSignalTrendFiltered(candle);
     default:
       return { buy: false, sell: false };
   }
