@@ -24,6 +24,10 @@ export interface CandleData {
   actualDirection?: number;
   predictedDirection?: number;
   signal?: number;
+  atr?: number;
+  supertrend?: number;
+  supertrendDirection?: number;
+  confluenceScore?: number;
 }
 
 export interface TradeRecord {

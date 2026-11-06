@@ -1,5 +1,93 @@
 import { CandleData } from '../types';
 
+// Calculate ATR (Average True Range) using Wilder's smoothing
+export function calcATR(
+  candles: Array<{ high: number; low: number; close: number }>,
+  period = 10
+): number[] {
+  if (candles.length === 0) return [];
+  const tr: number[] = [];
+
+  for (let i = 0; i < candles.length; i++) {
+    if (i === 0) {
+      tr.push(candles[i].high - candles[i].low);
+    } else {
+      const hl = candles[i].high - candles[i].low;
+      const hc = Math.abs(candles[i].high - candles[i - 1].close);
+      const lc = Math.abs(candles[i].low - candles[i - 1].close);
+      tr.push(Math.max(hl, hc, lc));
+    }
+  }
+
+  const atr: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < candles.length; i++) {
+    if (i < period) {
+      sum += tr[i];
+      if (i === period - 1) {
+        atr.push(sum / period);
+      } else {
+        atr.push(sum / (i + 1));
+      }
+    } else {
+      const prev = atr[i - 1];
+      atr.push((prev * (period - 1) + tr[i]) / period);
+    }
+  }
+
+  return atr;
+}
+
+// Calculate Supertrend indicator (ATR Trailing Stop)
+export function calcSupertrend(
+  candles: Array<{ high: number; low: number; close: number }>,
+  period = 10,
+  multiplier = 3
+): { supertrend: number[]; direction: number[] } {
+  const n = candles.length;
+  if (n === 0) return { supertrend: [], direction: [] };
+
+  const atr = calcATR(candles, period);
+  const supertrend: number[] = new Array(n).fill(0);
+  const direction: number[] = new Array(n).fill(1); // 1 = Bullish, -1 = Bearish
+
+  let prevUpper = 0;
+  let prevLower = 0;
+
+  for (let i = 0; i < n; i++) {
+    const hl2 = (candles[i].high + candles[i].low) / 2;
+    const curAtr = atr[i] ?? 0;
+    const basicUpper = hl2 + multiplier * curAtr;
+    const basicLower = hl2 - multiplier * curAtr;
+
+    if (i === 0) {
+      prevUpper = basicUpper;
+      prevLower = basicLower;
+      supertrend[0] = basicLower;
+      direction[0] = 1;
+      continue;
+    }
+
+    const prevClose = candles[i - 1].close;
+    const finalUpper = (basicUpper < prevUpper || prevClose > prevUpper) ? basicUpper : prevUpper;
+    const finalLower = (basicLower > prevLower || prevClose < prevLower) ? basicLower : prevLower;
+
+    let dir = direction[i - 1];
+    if (dir === 1 && candles[i].close < finalLower) {
+      dir = -1;
+    } else if (dir === -1 && candles[i].close > finalUpper) {
+      dir = 1;
+    }
+
+    direction[i] = dir;
+    supertrend[i] = dir === 1 ? finalLower : finalUpper;
+    prevUpper = finalUpper;
+    prevLower = finalLower;
+  }
+
+  return { supertrend, direction };
+}
+
 export function calculateIndicators(rawCandles: Array<{
   timestamp: string;
   open: number;
@@ -78,6 +166,10 @@ export function calculateIndicators(rawCandles: Array<{
   // Calculate RSI
   const rsiArr = calcRSI(closes, 14);
 
+  // Calculate ATR and Supertrend
+  const atrArr = calcATR(rawCandles, 10);
+  const stResult = calcSupertrend(rawCandles, 10, 3);
+
   // Bollinger Bands (20, 2)
   for (let i = 0; i < rawCandles.length; i++) {
     const start = Math.max(0, i - 19);
@@ -112,7 +204,10 @@ export function calculateIndicators(rawCandles: Array<{
       bbPosition: bbPos,
       isApogee,
       retrograde,
-      directionProb: rsiArr[i] < 45 ? 0.55 : rsiArr[i] > 65 ? 0.42 : 0.51
+      directionProb: rsiArr[i] < 45 ? 0.55 : rsiArr[i] > 65 ? 0.42 : 0.51,
+      atr: atrArr[i],
+      supertrend: stResult.supertrend[i],
+      supertrendDirection: stResult.direction[i]
     });
   }
 

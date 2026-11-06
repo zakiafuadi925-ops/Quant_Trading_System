@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { CandleData } from '../types';
 import { getSignal, StrategyParams, StrategyModel } from '../utils/strategy';
+import { calculateIndicators } from '../utils/technicalIndicators';
 import { CandlestickChart } from './CandlestickChart';
 
 import { 
@@ -37,6 +38,14 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
   const [takeProfitPct, setTakeProfitPct] = useState<number>(0); // 0 = disabled
   const [filterTradeType, setFilterTradeType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
 
+  // Ensure indicators (including ATR & Supertrend) are computed on candles
+  const processedCandles = useMemo(() => {
+    if (candles.length > 0 && candles[0].supertrend === undefined) {
+      return calculateIndicators(candles);
+    }
+    return candles;
+  }, [candles]);
+
   // Run backtesting logic faithfully reproducing quantitative backtest engines
   const backtestResults = useMemo(() => {
     let balance = initialCapital;
@@ -71,9 +80,9 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
       position: number;
     }> = [];
 
-    const firstPrice = candles[0]?.close || 1;
+    const firstPrice = processedCandles[0]?.close || 1;
 
-    candles.forEach((c: CandleData, idx: number) => {
+    processedCandles.forEach((c: CandleData, idx: number) => {
       const p = c.close;
 
       // Strategy signal logic
@@ -184,7 +193,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
       winRate,
       profitFactor
     };
-  }, [candles, initialCapital, feeRate, threshold, strategyModel, stopLossPct, takeProfitPct]);
+  }, [processedCandles, initialCapital, feeRate, threshold, strategyModel, stopLossPct, takeProfitPct]);
 
   // Export Backtest CSV function
   const handleExportCsv = () => {
@@ -280,12 +289,14 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
         {/* Strategy Selection Pills */}
         <div className="space-y-2">
           <span className="text-xs font-semibold text-slate-300">Select Backtest Strategy Model:</span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2.5">
             {[
+              { id: 'ensemble', label: 'Ensemble Confluence', desc: 'Score >= 70 (ML + Trend + ATR)' },
               { id: 'lstm', label: 'LSTM Neural Model', desc: 'Probability threshold' },
+              { id: 'supertrend', label: 'Supertrend (ATR)', desc: '10 ATR Trailing Stop' },
+              { id: 'trend_filter', label: 'Trend Filter (EMA 200)', desc: 'Macro 200 + EMA 9/21' },
               { id: 'astronacci', label: 'Astronacci Apogee', desc: 'Lunar ±2d + RSI' },
               { id: 'ema_cross', label: 'EMA 9/21 Ribbon', desc: 'Trend crossover' },
-              { id: 'trend_filter', label: 'Trend Filter (EMA 200)', desc: 'Macro 200 + EMA 9/21' },
               { id: 'macd_cross', label: 'MACD Cross', desc: 'MACD vs Signal' },
               { id: 'rsi_reversal', label: 'RSI Reversal (14)', desc: '35 oversold / 65 exit' },
               { id: 'bb_breakout', label: 'BB Breakout', desc: 'Bollinger Bands & Mid' },
@@ -348,6 +359,11 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setThreshold(Number(e.target.value))}
                 className="w-full accent-amber-500 cursor-pointer"
               />
+            </div>
+          ) : strategyModel === 'ensemble' ? (
+            <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-center text-slate-400">
+              <span className="text-[10px] block">Trigger Logic</span>
+              <span className="text-emerald-400 font-bold">Score ≥ 70 / 100</span>
             </div>
           ) : (
             <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-center text-slate-400">
@@ -557,9 +573,9 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-800/60">
-          <span>Start: {candles[0]?.timestamp}</span>
+          <span>Start: {processedCandles[0]?.timestamp}</span>
           <span>Strategy: {strategyModel.toUpperCase()} (Fee: {(feeRate * 100).toFixed(2)}%)</span>
-          <span>End: {candles[candles.length - 1]?.timestamp}</span>
+          <span>End: {processedCandles[processedCandles.length - 1]?.timestamp}</span>
         </div>
       </div>
 
