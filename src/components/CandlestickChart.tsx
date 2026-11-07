@@ -13,7 +13,9 @@ import {
   Sparkles,
   Info,
   Eye,
-  EyeOff
+  EyeOff,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 
 interface CandlestickChartProps {
@@ -23,16 +25,23 @@ interface CandlestickChartProps {
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandles, currentPrice }) => {
   const [timeframe, setTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
-  const [candles, setCandles] = useState<CandleData[]>(initialCandles);
+  const [candles, setCandles] = useState<CandleData[]>(() => {
+    if (initialCandles.length > 0 && initialCandles[0].supertrend === undefined) {
+      return calculateIndicators(initialCandles);
+    }
+    return initialCandles;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // Indicator Toggles
-  const [showEma9, setShowEma9] = useState<boolean>(true);
-  const [showEma21, setShowEma21] = useState<boolean>(true);
+  const [showSupertrend, setShowSupertrend] = useState<boolean>(true);
+  const [showSignals, setShowSignals] = useState<boolean>(true);
+  const [showEma200, setShowEma200] = useState<boolean>(true);
+  const [showEma9, setShowEma9] = useState<boolean>(false);
+  const [showEma21, setShowEma21] = useState<boolean>(false);
   const [showEma50, setShowEma50] = useState<boolean>(false);
-  const [showEma200, setShowEma200] = useState<boolean>(false);
-  const [showBollinger, setShowBollinger] = useState<boolean>(true);
+  const [showBollinger, setShowBollinger] = useState<boolean>(false);
   const [showApogee, setShowApogee] = useState<boolean>(true);
   const [showVolume, setShowVolume] = useState<boolean>(true);
   const [activeSubplot, setActiveSubplot] = useState<'rsi' | 'macd' | 'none'>('rsi');
@@ -65,6 +74,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
     setCandles(processed);
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    if (initialCandles.length > 0) {
+      setCandles(calculateIndicators(initialCandles));
+    }
+  }, [initialCandles]);
 
   const handleTimeframeChange = (tf: '1h' | '4h' | '1d' | '1w') => {
     setTimeframe(tf);
@@ -108,6 +123,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
         if (c.ema200 < min) min = c.ema200;
         if (c.ema200 > max) max = c.ema200;
       }
+      if (showSupertrend && c.supertrend !== undefined) {
+        if (c.supertrend < min) min = c.supertrend;
+        if (c.supertrend > max) max = c.supertrend;
+      }
     });
 
     const span = max - min || 1000;
@@ -115,7 +134,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
       minPrice: Math.max(0, min - span * 0.05),
       maxPrice: max + span * 0.05
     };
-  }, [visibleCandles, showBollinger, showEma200]);
+  }, [visibleCandles, showBollinger, showEma200, showSupertrend]);
 
   // Max Volume for bottom histogram
   const maxVolume = useMemo(() => {
