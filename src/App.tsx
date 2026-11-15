@@ -17,8 +17,8 @@ import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database } from 'lucide
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isAutoSync, setIsAutoSync] = useState<boolean>(true);
-  const [syncInterval, setSyncInterval] = useState<number>(15);
+  const [isAutoSync, setIsAutoSync] = useState<boolean>(false); // Manual on-demand API calls by default
+  const [syncInterval, setSyncInterval] = useState<number>(30);
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [isLoadingCandles, setIsLoadingCandles] = useState<boolean>(false);
 
@@ -131,23 +131,22 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
-              <span className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-              Live Feed: {ticker.source} ({ticker.symbol})
+              <span className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              Mode: {isAutoSync ? `Auto-Sync (${syncInterval}s)` : 'Manual Refresh (Click to sync)'}
+            </span>
+            <span>•</span>
+            <span className="text-slate-400">
+              Source: {ticker.source} ({ticker.symbol})
             </span>
             <span>•</span>
             <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
               <Database className="w-3.5 h-3.5" />
               Dataset: {datasetSource} ({candles.length} candles)
             </span>
-            <span>•</span>
-            <span>Keras LSTM v5.2.1</span>
-            <span>•</span>
-            <span>Astronacci Cycle</span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">
             <span>Last Sync: {ticker.lastUpdated}</span>
-            <span>Poll: {syncInterval}s</span>
             <span>Fee: 0.1%</span>
           </div>
         </div>

@@ -66,7 +66,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
         }
       }
     } catch (e) {
-      console.warn('Failed to fetch live klines for timeframe', tf, e);
+      // Quiet failover to initial candles
     }
 
     // Fallback: use initialCandles with modified timestamps or synthesized intervals

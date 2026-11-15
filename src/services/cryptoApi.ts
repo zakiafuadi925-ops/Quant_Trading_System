@@ -52,7 +52,7 @@ export async function fetchLiveBtcPrice(): Promise<LiveTicker> {
       }
     }
   } catch (err) {
-    console.warn('[Client] Server proxy fetch error:', err);
+    // Quiet failover to next fallback
   }
 
   // Method 2: Direct CoinGecko public API (CORS friendly)
@@ -79,7 +79,7 @@ export async function fetchLiveBtcPrice(): Promise<LiveTicker> {
       }
     }
   } catch (err) {
-    console.warn('[Client] CoinGecko direct failed:', err);
+    // Quiet failover to next fallback
   }
 
   // Method 3: Direct Coinbase public API (CORS friendly)
@@ -91,7 +91,7 @@ export async function fetchLiveBtcPrice(): Promise<LiveTicker> {
 
     if (res.ok) {
       const data = await res.json();
-      const price = parseFloat(data.data.amount);
+      const price = parseFloat(data.data?.amount);
       if (!isNaN(price)) {
         return {
           symbol: 'BTC/USD',
@@ -106,7 +106,7 @@ export async function fetchLiveBtcPrice(): Promise<LiveTicker> {
       }
     }
   } catch (err) {
-    console.warn('[Client] Coinbase direct failed:', err);
+    // Quiet failover to next fallback
   }
 
   // Method 4: Verified fallback
@@ -182,7 +182,7 @@ export async function fetchHistoricalCandles(
       }
     }
   } catch (err) {
-    console.warn('[Client] Server klines fetch failed:', err);
+    // Fall back to direct or seed
   }
 
   // 2. Direct Binance public API fallback (CORS friendly)
@@ -212,7 +212,7 @@ export async function fetchHistoricalCandles(
       }
     }
   } catch (err) {
-    console.warn('[Client] Direct Binance klines fetch failed:', err);
+    // Fall back to seed
   }
 
   // 3. Fallback default dataset

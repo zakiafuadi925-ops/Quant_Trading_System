@@ -16,8 +16,22 @@ async function startServer() {
 
   app.use(express.json({ limit: "10mb" }));
 
-  // Helper for fetch with timeout
-  async function fetchWithTimeout(url: string, ms = 4000) {
+  // In-memory cache for market ticker & klines to reduce external API pressure
+  let cachedTicker: any = null;
+  let lastTickerTime = 0;
+  const TICKER_CACHE_TTL = 8000; // 8 seconds
+
+  const klinesCache = new Map<string, { data: any; timestamp: number }>();
+  const KLINES_CACHE_TTL = 30000; // 30 seconds
+
+  function logProxyDebug(message: string, error?: any) {
+    if (process.env.DEBUG_PROXY === "true") {
+      console.debug(`[Proxy Debug] ${message}`, error ? error.message || error : "");
+    }
+  }
+
+  // Helper for fetch with timeout (fast failover to local fallback)
+  async function fetchWithTimeout(url: string, ms = 2000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), ms);
     try {
@@ -30,17 +44,22 @@ async function startServer() {
     }
   }
 
-  // 1. Live BTC Ticker endpoint with multi-source server-side fallback
+  // 1. Live BTC Ticker endpoint with multi-source server-side fallback & in-memory caching
   app.get("/api/crypto/ticker", async (_req, res) => {
+    const now = Date.now();
+    if (cachedTicker && now - lastTickerTime < TICKER_CACHE_TTL) {
+      return res.json(cachedTicker);
+    }
+
     // Attempt 1: Binance Public API
     try {
       const r = await fetchWithTimeout(
         "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT",
-        3000,
+        2000,
       );
       if (r.ok) {
         const d = await r.json();
-        return res.json({
+        const result = {
           success: true,
           symbol: "BTC/USDT",
           price: parseFloat(d.lastPrice),
@@ -50,24 +69,27 @@ async function startServer() {
           volume24h: parseFloat(d.volume),
           source: "Binance (Server Proxy)",
           timestamp: new Date().toISOString(),
-        });
+        };
+        cachedTicker = result;
+        lastTickerTime = now;
+        return res.json(result);
       }
     } catch (e) {
-      console.warn("[Proxy] Binance fetch failed:", (e as Error).message);
+      logProxyDebug("Binance ticker failed:", e);
     }
 
     // Attempt 2: CoinGecko Public API
     try {
       const r = await fetchWithTimeout(
         "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_vol=true&include_24hr_change=true",
-        3000,
+        2000,
       );
       if (r.ok) {
         const d = await r.json();
         if (d.bitcoin) {
           const price = d.bitcoin.usd;
           const change = d.bitcoin.usd_24h_change || 0;
-          return res.json({
+          const result = {
             success: true,
             symbol: "BTC/USD",
             price,
@@ -77,18 +99,21 @@ async function startServer() {
             volume24h: d.bitcoin.usd_24h_vol || 35000000000,
             source: "CoinGecko (Server Proxy)",
             timestamp: new Date().toISOString(),
-          });
+          };
+          cachedTicker = result;
+          lastTickerTime = now;
+          return res.json(result);
         }
       }
     } catch (e) {
-      console.warn("[Proxy] CoinGecko fetch failed:", (e as Error).message);
+      logProxyDebug("CoinGecko ticker failed:", e);
     }
 
     // Attempt 3: Kraken Public API
     try {
       const r = await fetchWithTimeout(
         "https://api.kraken.com/0/public/Ticker?pair=XBTUSD",
-        3000,
+        2000,
       );
       if (r.ok) {
         const d = await r.json();
@@ -97,7 +122,7 @@ async function startServer() {
           const current = parseFloat(pairData.c[0]);
           const open = parseFloat(pairData.o);
           const changePct = open > 0 ? ((current - open) / open) * 100 : 0;
-          return res.json({
+          const result = {
             success: true,
             symbol: "BTC/USD",
             price: current,
@@ -107,24 +132,27 @@ async function startServer() {
             volume24h: parseFloat(pairData.v[1]),
             source: "Kraken (Server Proxy)",
             timestamp: new Date().toISOString(),
-          });
+          };
+          cachedTicker = result;
+          lastTickerTime = now;
+          return res.json(result);
         }
       }
     } catch (e) {
-      console.warn("[Proxy] Kraken fetch failed:", (e as Error).message);
+      logProxyDebug("Kraken ticker failed:", e);
     }
 
     // Attempt 4: Coinbase Public API
     try {
       const r = await fetchWithTimeout(
         "https://api.coinbase.com/v2/prices/BTC-USD/spot",
-        3000,
+        2000,
       );
       if (r.ok) {
         const d = await r.json();
         const price = parseFloat(d.data?.amount);
         if (!isNaN(price)) {
-          return res.json({
+          const result = {
             success: true,
             symbol: "BTC/USD",
             price,
@@ -134,15 +162,18 @@ async function startServer() {
             volume24h: 40000,
             source: "Coinbase (Server Proxy)",
             timestamp: new Date().toISOString(),
-          });
+          };
+          cachedTicker = result;
+          lastTickerTime = now;
+          return res.json(result);
         }
       }
     } catch (e) {
-      console.warn("[Proxy] Coinbase fetch failed:", (e as Error).message);
+      logProxyDebug("Coinbase ticker failed:", e);
     }
 
-    // Baseline Fallback with recent verified price
-    return res.json({
+    // Baseline Fallback with verified historical price anchor
+    const fallback = {
       success: true,
       symbol: "BTC/USDT",
       price: 77558.02,
@@ -150,9 +181,12 @@ async function startServer() {
       high24h: 78500.0,
       low24h: 76200.0,
       volume24h: 38500,
-      source: "Verified Snapshot Fallback",
+      source: "Verified Offline Anchor",
       timestamp: new Date().toISOString(),
-    });
+    };
+    cachedTicker = fallback;
+    lastTickerTime = now;
+    return res.json(fallback);
   });
 
   // 1.5. Live & Historical Klines (Candlestick) endpoint with timeframe & multi-asset support
@@ -162,12 +196,20 @@ async function startServer() {
     const interval = String(req.query.interval || "1d");
     const limit = Math.min(500, Math.max(10, Number(req.query.limit) || 90));
 
-    // Attempt 1: Binance Live Klines API
+    // Check in-memory cache first to avoid redundant external network roundtrips
+    const cacheKey = `${symbol}_${interval}_${limit}`;
+    const now = Date.now();
+    const cached = klinesCache.get(cacheKey);
+    if (cached && now - cached.timestamp < KLINES_CACHE_TTL) {
+      return res.json(cached.data);
+    }
+
+    // Attempt 1: Binance Live Klines API (fast timeout)
     try {
       const binancePair = `${symbol}USDT`;
       const r = await fetchWithTimeout(
         `https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=${interval}&limit=${limit}`,
-        3500,
+        2000,
       );
       if (r.ok) {
         const raw = await r.json();
@@ -184,17 +226,19 @@ async function startServer() {
             close: parseFloat(k[4]),
             volume: parseFloat(k[5]),
           }));
-          return res.json({
+          const payload = {
             success: true,
             source: "Binance Live Klines",
             symbol,
             interval,
             candles,
-          });
+          };
+          klinesCache.set(cacheKey, { data: payload, timestamp: now });
+          return res.json(payload);
         }
       }
     } catch (e) {
-      console.warn(`[Proxy] Binance klines failed for ${symbol}:`, (e as Error).message);
+      logProxyDebug(`Binance klines failed for ${symbol}:`, e);
     }
 
     // Attempt 2: Server-side Historical CSV Datasets (trading_data/<SYMBOL>_trading_data.csv)
@@ -221,18 +265,20 @@ async function startServer() {
             .filter((c) => c.close > 0);
 
           if (candles.length > 0) {
-            return res.json({
+            const payload = {
               success: true,
               source: `Historical CSV Archive (${symbol})`,
               symbol,
               interval: "1d",
               candles,
-            });
+            };
+            klinesCache.set(cacheKey, { data: payload, timestamp: now });
+            return res.json(payload);
           }
         }
       }
     } catch (e) {
-      console.warn(`[Proxy] CSV fallback failed for ${symbol}:`, (e as Error).message);
+      logProxyDebug(`CSV fallback failed for ${symbol}:`, e);
     }
 
     return res.json({ success: false, message: "Fallback to client klines", symbol, interval });
