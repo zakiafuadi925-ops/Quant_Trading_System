@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { LiveTicker } from '../services/cryptoApi';
 import { 
   X, 
@@ -36,7 +36,36 @@ export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
   onManualFetch,
   isFetching
 }) => {
-  if (!isOpen) return null;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // Modern Web Guidance: Sync React isOpen state with native HTMLDialogElement showModal / close
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close();
+      }
+    }
+  }, [isOpen]);
+
+  // Handle native Escape key or form cancel event
+  const handleCancel = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    onClose();
+  };
+
+  // Close when clicking outside modal on native dialog backdrop
+  const handleDialogClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+    if (e.target === dialogRef.current) {
+      onClose();
+    }
+  };
 
   const handleDownloadCsv = () => {
     const csvContent = `timestamp,symbol,price,change_24h,high_24h,low_24h,volume_24h,source\n${new Date().toISOString()},${ticker.symbol},${ticker.price},${ticker.change24h},${ticker.high24h},${ticker.low24h},${ticker.volume24h},${ticker.source}`;
@@ -51,8 +80,14 @@ export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative space-y-5 max-h-[90vh] overflow-y-auto">
+    <dialog
+      ref={dialogRef}
+      onCancel={handleCancel}
+      onClick={handleDialogClick}
+      className="native-modal outline-none focus:outline-none"
+      aria-labelledby="live-feed-modal-title"
+    >
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full p-6 shadow-2xl relative space-y-5 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
@@ -60,7 +95,7 @@ export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
               <Zap className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <h3 id="live-feed-modal-title" className="text-base font-bold text-white flex items-center gap-2">
                 Automated Live Market Feed &amp; Ingestion
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono border border-emerald-500/30">
                   REAL-TIME
@@ -73,6 +108,7 @@ export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close modal"
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -203,6 +239,6 @@ while True:
           </button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 };
