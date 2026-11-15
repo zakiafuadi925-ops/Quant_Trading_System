@@ -184,6 +184,19 @@ Quant_Trading_System/
 
 ---
 
+## 📚 Documentation & Technical Specifications
+
+| Document | Description |
+|:---|:---|
+| [**`ARCHITECTURE.md`**](ARCHITECTURE.md) | Mathematical formulation for all 9 strategies, indicators (Wilder's ATR, Supertrend, EMA, RSI, MACD, BB), 5-factor Ensemble scoring, and backtest execution mechanics. |
+| [**`ROADMAP.md`**](ROADMAP.md) | Strategic product milestones from real-time WebSockets to multi-timeframe backtesting, live ML microservices, and paper trading. |
+| [**`DEPLOYMENT.md`**](DEPLOYMENT.md) | Production deployment manual covering Linux `systemd`, PM2 ecosystem, multi-stage Docker & Docker Compose, and Nginx reverse proxy with SSL. |
+| [**`CHANGELOG.md`**](CHANGELOG.md) | Version history adhering to Keep a Changelog and SemVer specifications. |
+| [**`CONTRIBUTING.md`**](CONTRIBUTING.md) | Open-source contribution guidelines, branch standards, coding conventions, and PR checklist. |
+| [**`AGENT.md`**](AGENT.md) | Single source of truth and strict 4-step verification instructions for AI coding assistants. |
+
+---
+
 ## 📜 License
 
 This project is licensed under the [MIT License](LICENSE).
