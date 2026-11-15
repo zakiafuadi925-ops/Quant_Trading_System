@@ -1,3 +1,7 @@
+import { CandleData } from '../types';
+import { calculateIndicators } from '../utils/technicalIndicators';
+import { BTC_CANDLES } from '../data/historicalData';
+
 export interface LiveTicker {
   symbol: string;
   price: number;
@@ -8,6 +12,20 @@ export interface LiveTicker {
   lastUpdated: string;
   source: string;
 }
+
+export interface CryptoSymbolOption {
+  symbol: string;
+  name: string;
+  pair: string;
+}
+
+export const SUPPORTED_SYMBOLS: CryptoSymbolOption[] = [
+  { symbol: 'BTC', name: 'Bitcoin', pair: 'BTC/USDT' },
+  { symbol: 'ETH', name: 'Ethereum', pair: 'ETH/USDT' },
+  { symbol: 'SOL', name: 'Solana', pair: 'SOL/USDT' },
+  { symbol: 'BNB', name: 'Binance Coin', pair: 'BNB/USDT' },
+  { symbol: 'ADA', name: 'Cardano', pair: 'ADA/USDT' },
+];
 
 export async function fetchLiveBtcPrice(): Promise<LiveTicker> {
   // Method 1: Internal server proxy (/api/crypto/ticker)
@@ -138,5 +156,68 @@ export async function fetchMultiCoinTickers(): Promise<Record<string, number>> {
     SOL: 95.66,
     BNB: 580.20,
     ADA: 0.55
+  };
+}
+
+export async function fetchHistoricalCandles(
+  symbol = 'BTC',
+  limit = 90,
+  interval = '1d'
+): Promise<{ candles: CandleData[]; source: string }> {
+  const cleanSymbol = symbol.toUpperCase().replace('USDT', '').replace('/USDT', '');
+
+  // 1. Internal server proxy (handles live Binance + fallback to CSV historical dataset)
+  try {
+    const res = await fetch(`/api/crypto/klines?symbol=${cleanSymbol}&interval=${interval}&limit=${limit}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success && Array.isArray(data.candles) && data.candles.length > 0) {
+        return {
+          candles: calculateIndicators(data.candles),
+          source: data.source || 'Server Proxy'
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Client] Server klines fetch failed:', err);
+  }
+
+  // 2. Direct Binance public API fallback (CORS friendly)
+  try {
+    const pair = `${cleanSymbol}USDT`;
+    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const raw = await res.json();
+      if (Array.isArray(raw) && raw.length > 0) {
+        const rawCandles = raw.map((k: any) => ({
+          timestamp:
+            new Date(k[0]).toISOString().split('T')[0] +
+            (interval === '1h' || interval === '4h' ? ' ' + new Date(k[0]).toISOString().split('T')[1].slice(0, 5) : ''),
+          open: parseFloat(k[1]),
+          high: parseFloat(k[2]),
+          low: parseFloat(k[3]),
+          close: parseFloat(k[4]),
+          volume: parseFloat(k[5])
+        }));
+        return {
+          candles: calculateIndicators(rawCandles),
+          source: 'Binance Direct API'
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Client] Direct Binance klines fetch failed:', err);
+  }
+
+  // 3. Fallback default dataset
+  return {
+    candles: BTC_CANDLES,
+    source: 'Compact Seed Fallback'
   };
 }

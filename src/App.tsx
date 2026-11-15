@@ -10,8 +10,9 @@ import { ModulesTab } from './components/ModulesTab';
 import { RiskManagementTab } from './components/RiskManagementTab';
 import { LiveFeedModal } from './components/LiveFeedModal';
 import { BTC_CANDLES } from './data/historicalData';
-import { fetchLiveBtcPrice, LiveTicker } from './services/cryptoApi';
-import { Sparkles, Terminal, Activity, ShieldCheck, Zap } from 'lucide-react';
+import { fetchLiveBtcPrice, fetchHistoricalCandles, LiveTicker } from './services/cryptoApi';
+import { CandleData } from './types';
+import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -19,6 +20,11 @@ export function App() {
   const [isAutoSync, setIsAutoSync] = useState<boolean>(true);
   const [syncInterval, setSyncInterval] = useState<number>(15);
   const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [isLoadingCandles, setIsLoadingCandles] = useState<boolean>(false);
+
+  // Dynamic Candles Dataset state (initialized with seed, hydrated dynamically)
+  const [candles, setCandles] = useState<CandleData[]>(BTC_CANDLES);
+  const [datasetSource, setDatasetSource] = useState<string>('Compact Seed Fallback');
 
   const [ticker, setTicker] = useState<LiveTicker>({
     symbol: 'BTC/USDT',
@@ -31,34 +37,44 @@ export function App() {
     source: 'Binance API'
   });
 
-  // Fetch live price function
-  const handleFetchLivePrice = useCallback(async () => {
+  // Fetch live market data (ticker + full dynamic candle dataset)
+  const handleFetchAllData = useCallback(async () => {
     setIsFetching(true);
+    setIsLoadingCandles(true);
     try {
-      const data = await fetchLiveBtcPrice();
-      setTicker(data);
+      const [tickerData, dynamicCandles] = await Promise.all([
+        fetchLiveBtcPrice(),
+        fetchHistoricalCandles('BTC', 120, '1d')
+      ]);
+
+      setTicker(tickerData);
+      if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
+        setCandles(dynamicCandles.candles);
+        setDatasetSource(dynamicCandles.source);
+      }
     } catch (e) {
-      console.warn('Failed to fetch live price', e);
+      console.warn('Failed to fetch dynamic market data', e);
     } finally {
       setIsFetching(false);
+      setIsLoadingCandles(false);
     }
   }, []);
 
   // Fetch immediately on mount
   useEffect(() => {
-    handleFetchLivePrice();
-  }, [handleFetchLivePrice]);
+    handleFetchAllData();
+  }, [handleFetchAllData]);
 
   // Periodic Auto-Sync Timer
   useEffect(() => {
     if (!isAutoSync) return;
 
     const timer = setInterval(() => {
-      handleFetchLivePrice();
+      handleFetchAllData();
     }, syncInterval * 1000);
 
     return () => clearInterval(timer);
-  }, [isAutoSync, syncInterval, handleFetchLivePrice]);
+  }, [isAutoSync, syncInterval, handleFetchAllData]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
@@ -67,18 +83,18 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         ticker={ticker}
-        isFetching={isFetching}
-        onRefresh={handleFetchLivePrice}
+        isFetching={isFetching || isLoadingCandles}
+        onRefresh={handleFetchAllData}
         onOpenFeedModal={() => setIsModalOpen(true)}
         isAutoSync={isAutoSync}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'overview' && <BacktestTab candles={BTC_CANDLES} currentPrice={ticker.price} />}
-        {activeTab === 'risk' && <RiskManagementTab candles={BTC_CANDLES} currentPrice={ticker.price} />}
-        {activeTab === 'astronacci' && <AstroCycleTab candles={BTC_CANDLES} />}
-        {activeTab === 'lstm' && <LstmModelTab candles={BTC_CANDLES} />}
+        {activeTab === 'overview' && <BacktestTab candles={candles} currentPrice={ticker.price} />}
+        {activeTab === 'risk' && <RiskManagementTab candles={candles} currentPrice={ticker.price} />}
+        {activeTab === 'astronacci' && <AstroCycleTab candles={candles} />}
+        {activeTab === 'lstm' && <LstmModelTab candles={candles} />}
         {activeTab === 'monte-carlo' && <MonteCarloTab currentBtcPrice={ticker.price} />}
         {activeTab === 'portfolio' && <PortfolioTab btcPrice={ticker.price} />}
         {activeTab === 'grid' && <GridTradingTab initialPrice={ticker.price} />}
@@ -94,22 +110,27 @@ export function App() {
         setIsAutoSync={setIsAutoSync}
         syncInterval={syncInterval}
         setSyncInterval={setSyncInterval}
-        onManualFetch={handleFetchLivePrice}
-        isFetching={isFetching}
+        onManualFetch={handleFetchAllData}
+        isFetching={isFetching || isLoadingCandles}
       />
 
       {/* Bottom Global Status Bar */}
       <footer className="border-t border-slate-800 bg-slate-900/60 backdrop-blur text-xs py-4 text-slate-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
               <span className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
               Live Feed: {ticker.source} ({ticker.symbol})
             </span>
             <span>•</span>
+            <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+              <Database className="w-3.5 h-3.5" />
+              Dataset: {datasetSource} ({candles.length} candles)
+            </span>
+            <span>•</span>
             <span>Keras LSTM v5.2.1</span>
             <span>•</span>
-            <span>Astronacci Cycle Engine</span>
+            <span>Astronacci Cycle</span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">

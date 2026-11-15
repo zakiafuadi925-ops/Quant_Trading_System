@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import http from "http";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 
@@ -154,42 +155,101 @@ async function startServer() {
     });
   });
 
-  // 1.5. Live Klines (Candlestick) endpoint with timeframe support
-  app.get("/api/crypto/klines", async (req, res) => {
+  // 1.5. Live & Historical Klines (Candlestick) endpoint with timeframe & multi-asset support
+  app.get(["/api/crypto/klines", "/api/crypto/candles"], async (req, res) => {
+    const rawSymbol = String(req.query.symbol || "BTC").toUpperCase();
+    const symbol = rawSymbol.replace("USDT", "").replace("/USDT", "").replace("-USD", "");
     const interval = String(req.query.interval || "1d");
-    const limit = Math.min(100, Math.max(10, Number(req.query.limit) || 60));
+    const limit = Math.min(500, Math.max(10, Number(req.query.limit) || 90));
 
+    // Attempt 1: Binance Live Klines API
     try {
+      const binancePair = `${symbol}USDT`;
       const r = await fetchWithTimeout(
-        `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=${limit}`,
-        4000,
+        `https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=${interval}&limit=${limit}`,
+        3500,
       );
       if (r.ok) {
         const raw = await r.json();
-        const candles = raw.map((k: any) => ({
-          timestamp:
-            new Date(k[0]).toISOString().split("T")[0] +
-            (interval === "1h" || interval === "4h"
-              ? " " + new Date(k[0]).toISOString().split("T")[1].slice(0, 5)
-              : ""),
-          open: parseFloat(k[1]),
-          high: parseFloat(k[2]),
-          low: parseFloat(k[3]),
-          close: parseFloat(k[4]),
-          volume: parseFloat(k[5]),
-        }));
-        return res.json({
-          success: true,
-          source: "Binance Live Klines",
-          interval,
-          candles,
-        });
+        if (Array.isArray(raw) && raw.length > 0) {
+          const candles = raw.map((k: any) => ({
+            timestamp:
+              new Date(k[0]).toISOString().split("T")[0] +
+              (interval === "1h" || interval === "4h"
+                ? " " + new Date(k[0]).toISOString().split("T")[1].slice(0, 5)
+                : ""),
+            open: parseFloat(k[1]),
+            high: parseFloat(k[2]),
+            low: parseFloat(k[3]),
+            close: parseFloat(k[4]),
+            volume: parseFloat(k[5]),
+          }));
+          return res.json({
+            success: true,
+            source: "Binance Live Klines",
+            symbol,
+            interval,
+            candles,
+          });
+        }
       }
     } catch (e) {
-      console.warn("[Proxy] Klines fetch failed:", (e as Error).message);
+      console.warn(`[Proxy] Binance klines failed for ${symbol}:`, (e as Error).message);
     }
 
-    return res.json({ success: false, message: "Fallback to client klines" });
+    // Attempt 2: Server-side Historical CSV Datasets (trading_data/<SYMBOL>_trading_data.csv)
+    try {
+      const csvPath = path.resolve(__dirname, `trading_data/${symbol}_trading_data.csv`);
+      if (fs.existsSync(csvPath)) {
+        const fileContent = fs.readFileSync(csvPath, "utf-8");
+        const lines = fileContent.trim().split("\n");
+        if (lines.length > 1) {
+          const rows = lines.slice(1);
+          const sliced = rows.slice(-limit);
+          const candles = sliced
+            .map((line) => {
+              const cols = line.split(",");
+              return {
+                timestamp: cols[0],
+                open: parseFloat(cols[1]) || 0,
+                high: parseFloat(cols[2]) || 0,
+                low: parseFloat(cols[3]) || 0,
+                close: parseFloat(cols[4]) || 0,
+                volume: parseFloat(cols[5]) || 0,
+              };
+            })
+            .filter((c) => c.close > 0);
+
+          if (candles.length > 0) {
+            return res.json({
+              success: true,
+              source: `Historical CSV Archive (${symbol})`,
+              symbol,
+              interval: "1d",
+              candles,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[Proxy] CSV fallback failed for ${symbol}:`, (e as Error).message);
+    }
+
+    return res.json({ success: false, message: "Fallback to client klines", symbol, interval });
+  });
+
+  // 1.6. Supported Symbols endpoint
+  app.get("/api/crypto/symbols", (_req, res) => {
+    res.json({
+      success: true,
+      symbols: [
+        { symbol: "BTC", name: "Bitcoin", pair: "BTC/USDT" },
+        { symbol: "ETH", name: "Ethereum", pair: "ETH/USDT" },
+        { symbol: "SOL", name: "Solana", pair: "SOL/USDT" },
+        { symbol: "BNB", name: "Binance Coin", pair: "BNB/USDT" },
+        { symbol: "ADA", name: "Cardano", pair: "ADA/USDT" },
+      ],
+    });
   });
 
   // 2. Multi-coin prices endpoint
