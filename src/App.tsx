@@ -76,12 +76,24 @@ export function App() {
     return () => clearInterval(timer);
   }, [isAutoSync, syncInterval, handleFetchAllData]);
 
+  // Modern Web Guidance: Native View Transitions API for buttery smooth tab switches
+  const handleTabChange = useCallback((newTab: string) => {
+    if (newTab === activeTab) return;
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      (document as unknown as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
+        setActiveTab(newTab);
+      });
+    } else {
+      setActiveTab(newTab);
+    }
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       {/* Top Navigation */}
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         ticker={ticker}
         isFetching={isFetching || isLoadingCandles}
         onRefresh={handleFetchAllData}
@@ -90,7 +102,7 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 tab-panel-container">
         {activeTab === 'overview' && <BacktestTab candles={candles} currentPrice={ticker.price} />}
         {activeTab === 'risk' && <RiskManagementTab candles={candles} currentPrice={ticker.price} />}
         {activeTab === 'astronacci' && <AstroCycleTab candles={candles} />}
