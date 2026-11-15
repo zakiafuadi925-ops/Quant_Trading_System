@@ -3,6 +3,7 @@ import { CandleData } from '../types';
 import { getSignal, StrategyParams, StrategyModel } from '../utils/strategy';
 import { calculateIndicators } from '../utils/technicalIndicators';
 import { CandlestickChart } from './CandlestickChart';
+import { WalkForwardModal } from './WalkForwardModal';
 
 import { 
   Play, 
@@ -42,10 +43,21 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
   const [initialCapital, setInitialCapital] = useState<number>(1000);
   const [feeRate, setFeeRate] = useState<number>(0.001); // 0.1%
   const [threshold, setThreshold] = useState<number>(0.51);
+  const [scoreThreshold, setScoreThreshold] = useState<number>(70);
+  const [exitScoreThreshold, setExitScoreThreshold] = useState<number>(40);
   const [strategyModel, setStrategyModel] = useState<StrategyModel>('lstm');
   const [stopLossPct, setStopLossPct] = useState<number>(0); // 0 = disabled
   const [takeProfitPct, setTakeProfitPct] = useState<number>(0); // 0 = disabled
   const [filterTradeType, setFilterTradeType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
+  const [isWalkForwardOpen, setIsWalkForwardOpen] = useState<boolean>(false);
+
+  const handleApplyOptimizedParams = (params: StrategyParams & { stopLossPct?: number; takeProfitPct?: number }) => {
+    if (params.threshold !== undefined) setThreshold(params.threshold);
+    if (params.scoreThreshold !== undefined) setScoreThreshold(params.scoreThreshold);
+    if (params.exitScoreThreshold !== undefined) setExitScoreThreshold(params.exitScoreThreshold);
+    if (params.stopLossPct !== undefined) setStopLossPct(params.stopLossPct);
+    if (params.takeProfitPct !== undefined) setTakeProfitPct(params.takeProfitPct);
+  };
 
   // Ensure indicators (including ATR & Supertrend) are computed on candles
   const processedCandles = useMemo(() => {
@@ -95,7 +107,11 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
       const p = c.close;
 
       // Strategy signal logic
-      let { buy: isBuySignal, sell: isSellSignal } = getSignal(c, strategyModel, { threshold });
+      let { buy: isBuySignal, sell: isSellSignal } = getSignal(c, strategyModel, { 
+        threshold,
+        scoreThreshold,
+        exitScoreThreshold
+      });
 
       // Check Stop Loss & Take Profit if currently in position
       let exitReason: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' = 'SIGNAL';
@@ -202,7 +218,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
       winRate,
       profitFactor
     };
-  }, [processedCandles, initialCapital, feeRate, threshold, strategyModel, stopLossPct, takeProfitPct]);
+  }, [processedCandles, initialCapital, feeRate, threshold, scoreThreshold, exitScoreThreshold, strategyModel, stopLossPct, takeProfitPct]);
 
   // Export Backtest CSV function
   const handleExportCsv = () => {
@@ -286,13 +302,23 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={handleExportCsv}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-mono text-xs font-bold transition-all border border-slate-700"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
-            Export Backtest (.csv)
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setIsWalkForwardOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-mono text-xs font-bold transition-all shadow-md shadow-cyan-600/20"
+            >
+              <Sliders className="w-3.5 h-3.5 text-cyan-200" />
+              Walk-Forward Optimizer
+            </button>
+
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-mono text-xs font-bold transition-all border border-slate-700"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              Export Backtest (.csv)
+            </button>
+          </div>
         </div>
 
         {/* Strategy Selection Pills */}
@@ -370,9 +396,12 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
               />
             </div>
           ) : strategyModel === 'ensemble' ? (
-            <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-center text-slate-400">
-              <span className="text-[10px] block">Trigger Logic</span>
-              <span className="text-emerald-400 font-bold">Score ≥ 70 / 100</span>
+            <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-slate-400 font-mono text-xs">
+              <div className="flex justify-between items-center text-[11px] mb-0.5">
+                <span>Entry: <strong className="text-emerald-400">≥ {scoreThreshold}</strong></span>
+                <span>Exit: <strong className="text-rose-400">&lt; {exitScoreThreshold}</strong></span>
+              </div>
+              <span className="text-[10px] text-slate-500 block text-center">Ensemble Score [0–100]</span>
             </div>
           ) : (
             <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2 text-center text-slate-400">
@@ -713,6 +742,15 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Walk-Forward Parameter Optimization Modal */}
+      <WalkForwardModal
+        isOpen={isWalkForwardOpen}
+        onClose={() => setIsWalkForwardOpen(false)}
+        candles={processedCandles}
+        strategyModel={strategyModel}
+        onApplyParams={handleApplyOptimizedParams}
+      />
     </div>
   );
 };

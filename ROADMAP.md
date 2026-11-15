@@ -62,9 +62,9 @@ flowchart TD
 
 ### 🚀 Phase 1: Real-Time Data Streaming & WebSocket Engine (`v5.3.0`) — *In Progress*
 *Goal: Transition from manual REST polling to continuous, sub-second market data synchronization.*
-- [ ] **Native Binance WebSocket Client**:
-  - Direct connection to `wss://stream.binance.com:9443/ws/btcusdt@trade` and `@kline_1m`.
-  - Automatic reconnection logic, heartbeat ping/pong, and error backoff.
+- [x] **Native Binance WebSocket Client**:
+  - Direct connection to `wss://stream.binance.com:9443/ws/btcusdt@ticker`.
+  - Automatic reconnection logic with exponential backoff and tick flash animation.
 - [ ] **Level 2 Order Book Depth Visualizer**:
   - Live 20-level bid/ask order book depth chart.
   - Dynamic bid-ask spread and liquidity imbalance ratio calculation.
@@ -75,9 +75,9 @@ flowchart TD
 
 ### 🌐 Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`)
 *Goal: Expand research versatility across resolutions and liquid crypto instruments.*
-- [ ] **Multi-Timeframe Engine**:
-  - Dynamic dropdown selector (`15m`, `1h`, `4h`, `1d`, `1w`).
-  - Resampling and aggregation utility for intra-day candlestick bars.
+- [x] **Multi-Timeframe Engine**:
+  - Dynamic dropdown selector (`1h`, `4h`, `1d`, `1w`) synchronized across Header, Backtest Tab, and Candlestick Terminal.
+  - Full strategy recalculation on active resolution bars.
 - [ ] **Multi-Asset Universe Support**:
   - Support for `ETH/USDT`, `SOL/USDT`, `BNB/USDT`, and `PAXG/USDT` (Tokenized Gold).
   - Dynamic symbol selector in header and backtest tabs.
@@ -115,8 +115,8 @@ flowchart TD
 
 ### 📊 Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`)
 *Goal: Provide hedge-fund-grade validation, optimization, and reporting tools.*
-- [ ] **Walk-Forward Analysis (WFA)**:
-  - Rolling in-sample parameter optimization with out-of-sample stress verification to eliminate overfitting.
+- [x] **Walk-Forward Analysis (WFA) & Parameter Sweeper**:
+  - In-sample parameter optimization with out-of-sample stress verification, WFE calculation, and overfit risk classification.
 - [ ] **Historical Monte Carlo Trade Bootstrap**:
   - Reshuffling trade sequences across 5,000 runs to calculate probability of ruin and worst-case drawdown distributions.
 - [ ] **Institutional Fact Sheet (PDF & CSV Export)**:

@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Synchronized Candlestick Terminal and Backtest metrics in lockstep.
 - **WebSocket Control & Status Integration** ([`src/components/LiveFeedModal.tsx`](src/components/LiveFeedModal.tsx)):
   - WebSocket status inspection and on-demand stream reconnection trigger.
+- **Walk-Forward Analysis & Parameter Sweeper Engine** ([`src/utils/walkForward.ts`](src/utils/walkForward.ts), [`src/components/WalkForwardModal.tsx`](src/components/WalkForwardModal.tsx)):
+  - Anti-overfitting framework splitting historical bars into In-Sample (IS, 50%–85%) and Out-of-Sample (OOS, 15%–50%) validation windows.
+  - Automated grid search across parameter permutations (score thresholds, entry/exit levels, Stop-Loss, and Take-Profit).
+  - Walk-Forward Efficiency (WFE %) calculation:
+    $$\text{WFE} = \frac{\text{Annualized Return}_{\text{OOS}}}{\text{Annualized Return}_{\text{IS}}} \times 100\%$$
+  - Automatic Overfit Risk classification (`LOW`, `MODERATE`, `HIGH`) and 0–100 Robustness Scoring.
+  - Interactive candidate leaderboard modal with one-click "Apply Parameters" to immediately update backtest execution.
+  - 6 unit tests covering metric calculations, parameter grid generation, and overfit risk detection ([`tests/walkForward.test.ts`](tests/walkForward.test.ts)).
 
 ---
 
