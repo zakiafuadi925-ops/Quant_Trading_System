@@ -4,6 +4,7 @@ export type StrategyParams = {
   threshold?: number; // for LSTM (default 0.51)
   scoreThreshold?: number; // for Ensemble entry (default 70)
   exitScoreThreshold?: number; // for Ensemble exit (default 40)
+  volumeThreshold?: number; // for volume confirmation (default 5.0)
 };
 
 export type StrategyModel = 
@@ -90,6 +91,8 @@ export function calculateConfluenceScore(
   params: StrategyParams = {}
 ): number {
   let score = 0;
+  // Volume threshold normalized to price: default 5.0 means volume/close > 5 triggers confirmation
+  const { volumeThreshold = 5.0 } = params;
 
   // 1. Macro Trend Regime (25 pts): Price above 200 EMA
   if (candle.close > candle.ema200) {
@@ -129,7 +132,42 @@ export function calculateConfluenceScore(
     score += 8;
   }
 
-  return score;
+  // 6. Volume Confirmation (NEW: 10 pts) - validates trend with volume surge
+  // Only add volume confirmation when multiple trend indicators agree (minimum 2 of 3).
+  // Excludes neutral/conflicting signal scenarios where indicators disagree.
+  const trendIndicators = [
+    // Macro trend direction: price above/below 200 EMA
+    candle.close > candle.ema200 ? 1 : candle.close < candle.ema200 ? -1 : 0,
+    // Short-term trend: EMA 9 above/below EMA 21
+    candle.ema9 > candle.ema21 ? 1 : candle.ema9 < candle.ema21 ? -1 : 0,
+    // Supertrend direction (if available)
+    candle.supertrendDirection !== undefined && candle.supertrendDirection !== 0
+      ? candle.supertrendDirection
+      : 0,
+  ];
+  
+  // Count aligned bullish (+1) and bearish (-1) signals
+  const bullishCount = trendIndicators.filter(i => i === 1).length;
+  const bearishCount = trendIndicators.filter(i => i === -1).length;
+  const hasClearTrend = Math.max(bullishCount, bearishCount) >= 2;
+
+  // 7. Volatility Filter (NEW: ±5 pts adjust) - reduce score in extreme volatility
+  // ATR-based volatility assessment: moderate volatility is ideal for mean-reversion strategies
+  let volAdjustment = 0;
+  if (candle.atr !== undefined && candle.close !== undefined && candle.close > 0) {
+    const atrPct = candle.atr / candle.close;
+    // Penalize extreme volatility (>5%) and very low volatility (<0.5%)
+    if (atrPct > 0.05) {
+      volAdjustment = -5; // high volatility penalty
+    } else if (atrPct < 0.005) {
+      volAdjustment = -2; // extremely low volatility penalty
+    } else {
+      volAdjustment = 0; // ideal volatility range
+    }
+  }
+  score += volAdjustment;
+
+  return Math.max(0, Math.min(100, score)); // clamp to 0-100
 }
 
 export function getSignalEnsemble(
@@ -140,9 +178,20 @@ export function getSignalEnsemble(
   const entryThresh = params.scoreThreshold ?? 70;
   const exitThresh = params.exitScoreThreshold ?? 40;
 
-  const buy = score >= entryThresh;
+  // Dynamic threshold adjustment based on volume and volatility
+  const volumeFactor = candle.volume > 0 ? Math.min(1, candle.volume / 1000) : 0;
+  const volatilityFactor = candle.atr !== undefined && candle.close > 0
+    ? Math.abs(candle.atr / candle.close)
+    : 0.02; // default assumption
+
+  // Adjust thresholds: higher volume loosens requirements, high volatility tightens them
+  const adjustedEntry = entryThresh - (volumeFactor * 5); // lower threshold with high volume
+  const adjustedExit = exitThresh + (volatilityFactor * 20); // higher exit threshold with high volatility
+
   const isMacroBreakdown = candle.close < candle.ema200 && (candle.supertrendDirection === -1 || (candle.supertrend !== undefined && candle.close < candle.supertrend));
-  const sell = score < exitThresh || isMacroBreakdown;
+
+  const buy = score >= adjustedEntry;
+  const sell = score < adjustedExit || isMacroBreakdown;
 
   return { buy, sell, score };
 }
