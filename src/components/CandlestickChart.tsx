@@ -187,6 +187,25 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
     return visibleCandles.map((c, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)},${getY(c.bbMid)}`).join(' ');
   }, [visibleCandles, minPrice, maxPrice]);
 
+  // Supertrend segmented path — color changes per candle based on direction
+  const supertrendSegments = useMemo(() => {
+    const segments: Array<{ x1: number; y1: number; x2: number; y2: number; bull: boolean }> = [];
+    for (let i = 1; i < visibleCandles.length; i++) {
+      const prev = visibleCandles[i - 1];
+      const curr = visibleCandles[i];
+      if (prev.supertrend !== undefined && curr.supertrend !== undefined) {
+        segments.push({
+          x1: getX(i - 1),
+          y1: getY(prev.supertrend),
+          x2: getX(i),
+          y2: getY(curr.supertrend),
+          bull: curr.supertrendDirection === 1
+        });
+      }
+    }
+    return segments;
+  }, [visibleCandles, minPrice, maxPrice]);
+
   // RSI Subplot Path
   const rsiPath = useMemo(() => {
     return visibleCandles.map((c, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)},${getSubplotY(c.rsi, 0, 100)}`).join(' ');
@@ -299,6 +318,30 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
           </button>
 
           <button
+            onClick={() => setShowSupertrend(!showSupertrend)}
+            className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+              showSupertrend
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 font-bold'
+                : 'bg-slate-950 border-slate-800 text-slate-500'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            Supertrend
+          </button>
+
+          <button
+            onClick={() => setShowSignals(!showSignals)}
+            className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+              showSignals
+                ? 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300 font-bold'
+                : 'bg-slate-950 border-slate-800 text-slate-500'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-yellow-400" />
+            Signals
+          </button>
+
+          <button
             onClick={() => setShowApogee(!showApogee)}
             className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
               showApogee
@@ -349,6 +392,13 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
             )}
             {activeCandle.bbMid !== undefined && showBollinger && (
               <span className="text-slate-400">BB Mid: <strong className="text-cyan-400">${Math.round(activeCandle.bbMid).toLocaleString()}</strong></span>
+            )}
+            {activeCandle.supertrend !== undefined && showSupertrend && (
+              <span className="text-slate-400">ST:
+                <strong className={activeCandle.supertrendDirection === 1 ? 'text-emerald-400' : 'text-rose-400'}>
+                  {' '}${Math.round(activeCandle.supertrend).toLocaleString()} {activeCandle.supertrendDirection === 1 ? '▲ Bull' : '▼ Bear'}
+                </strong>
+              </span>
             )}
             {activeCandle.isApogee && (
               <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
@@ -430,6 +480,21 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
           {showEma50 && <path d={ema50Path} fill="none" stroke="#a855f7" strokeWidth="1.75" opacity="0.9" />}
           {showEma200 && <path d={ema200Path} fill="none" stroke="#f43f5e" strokeWidth="2" opacity="0.9" />}
 
+          {/* Supertrend Overlay — segmented colored lines (green=bull, red=bear) */}
+          {showSupertrend && supertrendSegments.map((seg, i) => (
+            <line
+              key={`st-${i}`}
+              x1={seg.x1}
+              y1={seg.y1}
+              x2={seg.x2}
+              y2={seg.y2}
+              stroke={seg.bull ? '#10b981' : '#f43f5e'}
+              strokeWidth="2.5"
+              opacity="0.85"
+              strokeLinecap="round"
+            />
+          ))}
+
           {/* Candlesticks & Volume Bars */}
           {visibleCandles.map((c, i) => {
             const isBull = c.close >= c.open;
@@ -501,6 +566,40 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
                     <text y="3" textAnchor="middle" fill="#ffffff" fontSize="7" fontWeight="bold">🪐</text>
                   </g>
                 )}
+
+                {/* Buy/Sell Signal Markers — triggered on Supertrend direction flip */}
+                {showSignals && (() => {
+                  const prevDir = i > 0 ? visibleCandles[i - 1].supertrendDirection : c.supertrendDirection;
+                  const isBuyFlip = prevDir === -1 && c.supertrendDirection === 1;
+                  const isSellFlip = prevDir === 1 && c.supertrendDirection === -1;
+                  if (!isBuyFlip && !isSellFlip) return null;
+                  return (
+                    <>
+                      {isBuyFlip && (
+                        <g>
+                          <polygon
+                            points={`${cx - 6},${yLow + 18} ${cx + 6},${yLow + 18} ${cx},${yLow + 8}`}
+                            fill="#10b981"
+                            stroke="#064e3b"
+                            strokeWidth="0.8"
+                          />
+                          <text x={cx} y={yLow + 28} textAnchor="middle" fill="#10b981" fontSize="8" fontWeight="bold" fontFamily="monospace">BUY</text>
+                        </g>
+                      )}
+                      {isSellFlip && (
+                        <g>
+                          <polygon
+                            points={`${cx - 6},${yHigh - 18} ${cx + 6},${yHigh - 18} ${cx},${yHigh - 8}`}
+                            fill="#f43f5e"
+                            stroke="#881337"
+                            strokeWidth="0.8"
+                          />
+                          <text x={cx} y={yHigh - 22} textAnchor="middle" fill="#f43f5e" fontSize="8" fontWeight="bold" fontFamily="monospace">SELL</text>
+                        </g>
+                      )}
+                    </>
+                  );
+                })()}
               </g>
             );
           })}
@@ -639,7 +738,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
           <span className="text-amber-400 font-bold">{visibleCount}</span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             Bullish
@@ -652,6 +751,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
             <Orbit className="w-3.5 h-3.5 text-indigo-400" />
             Apogee Window (±2d)
           </span>
+          {showSupertrend && (
+            <span className="flex items-center gap-1.5 text-emerald-300">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              Supertrend
+            </span>
+          )}
+          {showSignals && (
+            <span className="flex items-center gap-1.5 text-yellow-300">
+              <Zap className="w-3.5 h-3.5 text-yellow-400" />
+              Buy/Sell Signals
+            </span>
+          )}
         </div>
       </div>
     </div>
