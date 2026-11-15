@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SimulationSummary } from '../types';
+import { runMonteCarloSimulation, MonteCarloParams, MonteCarloResult } from '../workers/monteCarloCore';
 import { 
   Activity, 
   Play, 
@@ -10,7 +11,8 @@ import {
   Info, 
   Sliders, 
   Target,
-  BarChart3
+  BarChart3,
+  Cpu
 } from 'lucide-react';
 
 interface MonteCarloTabProps {
@@ -24,119 +26,83 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
   const [dailyVolPct, setDailyVolPct] = useState<number>(2.182); // 0.021816
   const [seedVersion, setSeedVersion] = useState<number>(1);
 
-  // Box-Muller transform for pseudo-random standard normal numbers
-  const standardNormal = useCallback(() => {
-    let u1 = 0;
-    let u2 = 0;
-    while (u1 === 0) u1 = Math.random();
-    while (u2 === 0) u2 = Math.random();
-    return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+  // Background computation state via native Web Worker
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [isWorkerActive, setIsWorkerActive] = useState<boolean>(true);
+
+  // Initialize simulation with synchronous default
+  const [simulation, setSimulation] = useState<MonteCarloResult>(() =>
+    runMonteCarloSimulation({
+      currentBtcPrice,
+      horizonDays: 28,
+      nPaths: 2000,
+      dailyDriftPct: 0.461,
+      dailyVolPct: 2.182,
+      seedVersion: 1
+    })
+  );
+
+  const workerRef = useRef<Worker | null>(null);
+  const activeRequestId = useRef<number>(0);
+
+  // Modern Web Guidance: Initialize Dedicated Web Worker to offload heavy stochastic paths
+  useEffect(() => {
+    try {
+      if (typeof Worker !== 'undefined') {
+        const worker = new Worker(new URL('../workers/monteCarlo.worker.ts', import.meta.url), {
+          type: 'module'
+        });
+
+        worker.onmessage = (e: MessageEvent<{ id: number; result: MonteCarloResult }>) => {
+          if (e.data && e.data.id === activeRequestId.current) {
+            setSimulation(e.data.result);
+            setIsSimulating(false);
+          }
+        };
+
+        worker.onerror = (err) => {
+          console.warn('[MonteCarlo Worker Error, falling back to sync]', err);
+          setIsWorkerActive(false);
+        };
+
+        workerRef.current = worker;
+        setIsWorkerActive(true);
+
+        return () => {
+          worker.terminate();
+          workerRef.current = null;
+        };
+      } else {
+        setIsWorkerActive(false);
+      }
+    } catch (e) {
+      console.warn('[Web Workers unsupported, fallback to main thread]', e);
+      setIsWorkerActive(false);
+    }
   }, []);
 
-  // Run GBM simulation
-  const simulation = useMemo(() => {
-    const s0 = currentBtcPrice;
-    const mu = dailyDriftPct / 100;
-    const sigma = dailyVolPct / 100;
-    const dt = 1.0;
-    const drift = (mu - 0.5 * sigma * sigma) * dt;
-    const diffusion = sigma * Math.sqrt(dt);
-
-    // Store day-by-day prices for quantile fan chart
-    // days x paths
-    const dayPrices: number[][] = Array.from({ length: horizonDays + 1 }, () => []);
-    for (let p = 0; p < nPaths; p++) {
-      dayPrices[0].push(s0);
-    }
-
-    const terminalPrices: number[] = [];
-    const samplePathsCount = 30; // representative paths to draw
-    const samplePaths: number[][] = Array.from({ length: samplePathsCount }, () => [s0]);
-
-    for (let p = 0; p < nPaths; p++) {
-      let currentP = s0;
-      const isSample = p < samplePathsCount;
-
-      for (let d = 1; d <= horizonDays; d++) {
-        const z = standardNormal();
-        currentP = currentP * Math.exp(drift + diffusion * z);
-        dayPrices[d].push(currentP);
-        if (isSample) {
-          samplePaths[p].push(currentP);
-        }
-      }
-      terminalPrices.push(currentP);
-    }
-
-    // Sort day-by-day for percentiles
-    const percentileCurve: Array<{
-      day: number;
-      p5: number;
-      p25: number;
-      p50: number;
-      p75: number;
-      p95: number;
-    }> = [];
-
-    for (let d = 0; d <= horizonDays; d++) {
-      const sorted = [...dayPrices[d]].sort((a, b) => a - b);
-      percentileCurve.push({
-        day: d,
-        p5: sorted[Math.floor(sorted.length * 0.05)],
-        p25: sorted[Math.floor(sorted.length * 0.25)],
-        p50: sorted[Math.floor(sorted.length * 0.50)],
-        p75: sorted[Math.floor(sorted.length * 0.75)],
-        p95: sorted[Math.floor(sorted.length * 0.95)],
-      });
-    }
-
-    terminalPrices.sort((a, b) => a - b);
-
-    const sum = terminalPrices.reduce((acc, v) => acc + v, 0);
-    const terminalMean = sum / nPaths;
-    const terminalMedian = terminalPrices[Math.floor(nPaths / 2)];
-    const terminalMin = terminalPrices[0];
-    const terminalMax = terminalPrices[nPaths - 1];
-
-    const lossCount = terminalPrices.filter((p) => p < s0).length;
-    const probLoss = (lossCount / nPaths) * 100;
-
-    const gain20Count = terminalPrices.filter((p) => p >= s0 * 1.2).length;
-    const probGain20 = (gain20Count / nPaths) * 100;
-
-    const gain50Count = terminalPrices.filter((p) => p >= s0 * 1.5).length;
-    const probGain50 = (gain50Count / nPaths) * 100;
-
-    // VaR 95%: 5th percentile price vs starting price
-    const p5Val = terminalPrices[Math.floor(nPaths * 0.05)];
-    const var95Pct = Math.max(0, ((s0 - p5Val) / s0) * 100);
-
-    // Expected Shortfall (CVaR 95%): average of bottom 5%
-    const bottom5 = terminalPrices.slice(0, Math.floor(nPaths * 0.05));
-    const avgBottom5 = bottom5.reduce((a, b) => a + b, 0) / (bottom5.length || 1);
-    const cvar95Pct = Math.max(0, ((s0 - avgBottom5) / s0) * 100);
-
-    const annualizedVol = sigma * Math.sqrt(365) * 100;
-    const annualizedDrift = (Math.exp(mu * 365) - 1) * 100;
-
-    return {
-      percentileCurve,
-      samplePaths,
-      terminalPrices,
-      terminalMean,
-      terminalMedian,
-      terminalMin,
-      terminalMax,
-      probLoss,
-      probGain20,
-      probGain50,
-      var95Pct,
-      cvar95Pct,
-      annualizedVol,
-      annualizedDrift,
-      s0
+  // Post simulation job to background worker whenever parameters change
+  useEffect(() => {
+    const params: MonteCarloParams = {
+      currentBtcPrice,
+      horizonDays,
+      nPaths,
+      dailyDriftPct,
+      dailyVolPct,
+      seedVersion
     };
-  }, [currentBtcPrice, horizonDays, nPaths, dailyDriftPct, dailyVolPct, seedVersion, standardNormal]);
+
+    if (workerRef.current && isWorkerActive) {
+      setIsSimulating(true);
+      const reqId = ++activeRequestId.current;
+      workerRef.current.postMessage({ id: reqId, params });
+    } else {
+      // Synchronous fallback for headless test runners / environments without Web Worker
+      const result = runMonteCarloSimulation(params);
+      setSimulation(result);
+      setIsSimulating(false);
+    }
+  }, [currentBtcPrice, horizonDays, nPaths, dailyDriftPct, dailyVolPct, seedVersion, isWorkerActive]);
 
   // Chart coordinate mapping
   const chartWidth = 900;
@@ -182,9 +148,19 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-2">
-              <Activity className="w-3.5 h-3.5 text-emerald-400" />
-              Stochastic GBM Projection Engine
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                Stochastic GBM Projection Engine
+              </div>
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border transition-all ${
+                isSimulating
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
+                  : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+              }`}>
+                <Cpu className={`w-3.5 h-3.5 ${isSimulating ? 'animate-spin text-amber-400' : 'text-indigo-400'}`} />
+                {isSimulating ? 'Worker Computing...' : isWorkerActive ? 'Web Worker Thread (Off-UI)' : 'Main Thread Fallback'}
+              </div>
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">
               Monte Carlo Multi-Path Price Simulation
@@ -196,9 +172,10 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
 
           <button
             onClick={() => setSeedVersion((prev) => prev + 1)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all"
+            disabled={isSimulating}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50"
           >
-            <RotateCw className="w-4 h-4 animate-spin-hover" />
+            <RotateCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : 'animate-spin-hover'}`} />
             Re-run Simulation ({nPaths.toLocaleString()} Paths)
           </button>
         </div>
