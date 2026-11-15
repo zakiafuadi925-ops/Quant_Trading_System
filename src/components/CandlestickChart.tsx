@@ -21,10 +21,19 @@ import {
 interface CandlestickChartProps {
   initialCandles: CandleData[];
   currentPrice?: number;
+  timeframe?: '1h' | '4h' | '1d' | '1w';
+  onTimeframeChange?: (tf: '1h' | '4h' | '1d' | '1w') => void;
 }
 
-export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandles, currentPrice }) => {
-  const [timeframe, setTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
+export const CandlestickChart: React.FC<CandlestickChartProps> = ({ 
+  initialCandles, 
+  currentPrice,
+  timeframe: propTimeframe,
+  onTimeframeChange
+}) => {
+  const [internalTimeframe, setInternalTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
+  const activeTf = propTimeframe || internalTimeframe;
+
   const [candles, setCandles] = useState<CandleData[]>(() => {
     if (initialCandles.length > 0 && initialCandles[0].supertrend === undefined) {
       return calculateIndicators(initialCandles);
@@ -82,8 +91,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
   }, [initialCandles]);
 
   const handleTimeframeChange = (tf: '1h' | '4h' | '1d' | '1w') => {
-    setTimeframe(tf);
-    fetchTimeframeCandles(tf);
+    if (onTimeframeChange) {
+      onTimeframeChange(tf);
+    } else {
+      setInternalTimeframe(tf);
+      fetchTimeframeCandles(tf);
+    }
   };
 
   // Slice visible candles
@@ -223,7 +236,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
               Interactive Pro Candlestick Terminal
             </h3>
             <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
-              {timeframe.toUpperCase()}
+              {activeTf.toUpperCase()}
             </span>
           </div>
 
@@ -234,7 +247,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
                 key={tf}
                 onClick={() => handleTimeframeChange(tf)}
                 className={`px-2.5 py-1 rounded text-xs font-bold transition-all uppercase ${
-                  timeframe === tf
+                  activeTf === tf
                     ? 'bg-amber-500 text-slate-950 shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
@@ -246,7 +259,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ initialCandl
 
           {/* Refresh Timeframe Button */}
           <button
-            onClick={() => fetchTimeframeCandles(timeframe)}
+            onClick={() => fetchTimeframeCandles(activeTf)}
             disabled={isLoading}
             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
             title="Refresh candlestick data"

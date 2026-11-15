@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { LiveTicker } from '../services/cryptoApi';
+import { WsStatus } from '../services/binanceWs';
 import { 
   X, 
   RefreshCw, 
@@ -10,7 +11,8 @@ import {
   Clock, 
   Globe, 
   Database,
-  Code
+  Code,
+  Radio
 } from 'lucide-react';
 
 interface LiveFeedModalProps {
@@ -23,6 +25,8 @@ interface LiveFeedModalProps {
   setSyncInterval: (sec: number) => void;
   onManualFetch: () => void;
   isFetching: boolean;
+  wsStatus?: WsStatus;
+  onReconnectWs?: () => void;
 }
 
 export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
@@ -34,7 +38,9 @@ export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
   syncInterval,
   setSyncInterval,
   onManualFetch,
-  isFetching
+  isFetching,
+  wsStatus = 'disconnected',
+  onReconnectWs
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -143,6 +149,47 @@ export const LiveFeedModal: React.FC<LiveFeedModalProps> = ({
             <span className="text-xs font-bold text-slate-200 mt-1 block">
               {ticker.lastUpdated}
             </span>
+          </div>
+        </div>
+
+        {/* WebSocket Real-Time Stream Status */}
+        <div className="p-4 bg-slate-950/90 rounded-xl border border-slate-800 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Radio className="w-4 h-4 animate-pulse" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white flex items-center gap-2">
+                  Binance Direct WebSocket Stream
+                  {wsStatus === 'connected' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      CONNECTED
+                    </span>
+                  ) : wsStatus === 'connecting' ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      CONNECTING
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                      OFFLINE / FALLBACK
+                    </span>
+                  )}
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Sub-second live ticker stream (`wss://stream.binance.com:9443/ws/btcusdt@ticker`)
+                </p>
+              </div>
+            </div>
+
+            {onReconnectWs && (
+              <button
+                onClick={onReconnectWs}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+              >
+                Reconnect Stream
+              </button>
+            )}
           </div>
         </div>
 

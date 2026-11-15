@@ -27,9 +27,18 @@ import {
 interface BacktestTabProps {
   candles: CandleData[];
   currentPrice?: number;
+  timeframe?: '1h' | '4h' | '1d' | '1w';
+  onTimeframeChange?: (tf: '1h' | '4h' | '1d' | '1w') => void;
+  isLoadingCandles?: boolean;
 }
 
-export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice }) => {
+export const BacktestTab: React.FC<BacktestTabProps> = ({ 
+  candles, 
+  currentPrice,
+  timeframe = '1d',
+  onTimeframeChange,
+  isLoadingCandles = false
+}) => {
   const [initialCapital, setInitialCapital] = useState<number>(1000);
   const [feeRate, setFeeRate] = useState<number>(0.001); // 0.1%
   const [threshold, setThreshold] = useState<number>(0.51);
@@ -473,8 +482,44 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({ candles, currentPrice 
         </div>
       </div>
 
+      {/* Global Resolution Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-900 border border-slate-800 rounded-xl font-mono text-xs shadow-md">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-400" />
+          <span className="text-slate-300 font-semibold">Backtest Resolution:</span>
+          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold uppercase">
+            {timeframe}
+          </span>
+          <span className="text-[11px] text-slate-500 hidden sm:inline">
+            ({processedCandles.length} Historical Bars Processed)
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 p-0.5 bg-slate-950 rounded-lg border border-slate-800">
+          {(['1h', '4h', '1d', '1w'] as const).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => onTimeframeChange?.(tf)}
+              disabled={isLoadingCandles}
+              className={`px-3 py-1 rounded text-xs font-bold transition-all uppercase ${
+                timeframe === tf
+                  ? 'bg-amber-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              } ${isLoadingCandles ? 'opacity-50 cursor-wait' : ''}`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Pro Interactive Candlestick Chart Terminal (TradingView Style) */}
-      <CandlestickChart initialCandles={candles} currentPrice={currentPrice} />
+      <CandlestickChart 
+        initialCandles={candles} 
+        currentPrice={currentPrice} 
+        timeframe={timeframe}
+        onTimeframeChange={onTimeframeChange}
+      />
 
       {/* Main Equity Comparison Chart */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">

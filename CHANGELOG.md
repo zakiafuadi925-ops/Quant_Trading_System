@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.3.0] - 2026-11-15
+
+### 🚀 Added
+- **Binance WebSocket Live Stream Engine** ([`src/services/binanceWs.ts`](src/services/binanceWs.ts)):
+  - Direct connection to Binance public WebSocket stream (`wss://stream.binance.com:9443/ws/btcusdt@ticker`).
+  - Sub-second real-time tick streaming with automatic exponential backoff reconnection.
+  - Header tick flash animations (green flash on tick up, red flash on tick down).
+  - Live status indicator badges (`● WS STREAM LIVE`, `CONNECTING...`, `REST MODE`).
+  - Unit tests for WebSocket manager state and callbacks ([`tests/binanceWs.test.ts`](tests/binanceWs.test.ts)).
+- **Multi-Timeframe Backtest & Terminal Synchronization** ([`src/App.tsx`](src/App.tsx), [`src/components/BacktestTab.tsx`](src/components/BacktestTab.tsx), [`src/components/CandlestickChart.tsx`](src/components/CandlestickChart.tsx)):
+  - Global timeframe selector supporting `1h`, `4h`, `1d`, and `1w` resolutions.
+  - Backtest engine dynamically recomputes all 9 trading strategies and equity curves against active resolution bars.
+  - Synchronized Candlestick Terminal and Backtest metrics in lockstep.
+- **WebSocket Control & Status Integration** ([`src/components/LiveFeedModal.tsx`](src/components/LiveFeedModal.tsx)):
+  - WebSocket status inspection and on-demand stream reconnection trigger.
+
+---
+
 ## [5.2.1 PRO] - 2026-11-15
 
 ### 🚀 Added

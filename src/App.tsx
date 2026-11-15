@@ -11,8 +11,9 @@ import { RiskManagementTab } from './components/RiskManagementTab';
 import { LiveFeedModal } from './components/LiveFeedModal';
 import { BTC_CANDLES } from './data/historicalData';
 import { fetchLiveBtcPrice, fetchHistoricalCandles, LiveTicker } from './services/cryptoApi';
+import { binanceWs, WsStatus } from './services/binanceWs';
 import { CandleData } from './types';
-import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database } from 'lucide-react';
+import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database, Clock } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -21,6 +22,12 @@ export function App() {
   const [syncInterval, setSyncInterval] = useState<number>(30);
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [isLoadingCandles, setIsLoadingCandles] = useState<boolean>(false);
+
+  // Timeframe resolution state (1h, 4h, 1d, 1w)
+  const [timeframe, setTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
+
+  // WebSocket Live Stream state
+  const [wsStatus, setWsStatus] = useState<WsStatus>('disconnected');
 
   // Dynamic Candles Dataset state (initialized with seed, hydrated dynamically)
   const [candles, setCandles] = useState<CandleData[]>(BTC_CANDLES);
@@ -37,14 +44,14 @@ export function App() {
     source: 'Binance API'
   });
 
-  // Fetch live market data (ticker + full dynamic candle dataset)
+  // Fetch live market data (ticker + full dynamic candle dataset for active timeframe)
   const handleFetchAllData = useCallback(async () => {
     setIsFetching(true);
     setIsLoadingCandles(true);
     try {
       const [tickerData, dynamicCandles] = await Promise.all([
         fetchLiveBtcPrice(),
-        fetchHistoricalCandles('BTC', 120, '1d')
+        fetchHistoricalCandles('BTC', 120, timeframe)
       ]);
 
       setTicker(tickerData);
@@ -58,14 +65,59 @@ export function App() {
       setIsFetching(false);
       setIsLoadingCandles(false);
     }
+  }, [timeframe]);
+
+  // Handle switching timeframe across the entire application & strategy backtest engine
+  const handleTimeframeChange = useCallback(async (newTf: '1h' | '4h' | '1d' | '1w') => {
+    setTimeframe(newTf);
+    setIsLoadingCandles(true);
+    try {
+      const dynamicCandles = await fetchHistoricalCandles('BTC', 120, newTf);
+      if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
+        setCandles(dynamicCandles.candles);
+        setDatasetSource(dynamicCandles.source);
+      }
+    } catch (e) {
+      console.warn(`Failed to switch to ${newTf} candles`, e);
+    } finally {
+      setIsLoadingCandles(false);
+    }
   }, []);
 
-  // Fetch immediately on mount
+  // Connect to Binance WebSocket for sub-second live price streaming
+  useEffect(() => {
+    binanceWs.connect('BTC');
+
+    const unsubPrice = binanceWs.onPrice((tick) => {
+      setTicker((prev) => ({
+        symbol: tick.symbol,
+        price: tick.price,
+        change24h: tick.change24h,
+        high24h: tick.high24h,
+        low24h: tick.low24h,
+        volume24h: tick.volume24h,
+        lastUpdated: new Date().toLocaleTimeString(),
+        source: 'Binance WebSocket (Live)'
+      }));
+    });
+
+    const unsubStatus = binanceWs.onStatus((status) => {
+      setWsStatus(status);
+    });
+
+    return () => {
+      unsubPrice();
+      unsubStatus();
+      binanceWs.disconnect();
+    };
+  }, []);
+
+  // Fetch initial candles and ticker on mount
   useEffect(() => {
     handleFetchAllData();
   }, [handleFetchAllData]);
 
-  // Periodic Auto-Sync Timer
+  // Periodic Auto-Sync Timer for fallback polling
   useEffect(() => {
     if (!isAutoSync) return;
 
@@ -99,11 +151,22 @@ export function App() {
         onRefresh={handleFetchAllData}
         onOpenFeedModal={() => setIsModalOpen(true)}
         isAutoSync={isAutoSync}
+        wsStatus={wsStatus}
+        selectedTimeframe={timeframe}
+        onTimeframeChange={handleTimeframeChange}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 tab-panel-container">
-        {activeTab === 'overview' && <BacktestTab candles={candles} currentPrice={ticker.price} />}
+        {activeTab === 'overview' && (
+          <BacktestTab 
+            candles={candles} 
+            currentPrice={ticker.price}
+            timeframe={timeframe}
+            onTimeframeChange={handleTimeframeChange}
+            isLoadingCandles={isLoadingCandles}
+          />
+        )}
         {activeTab === 'risk' && <RiskManagementTab candles={candles} currentPrice={ticker.price} />}
         {activeTab === 'astronacci' && <AstroCycleTab candles={candles} />}
         {activeTab === 'lstm' && <LstmModelTab candles={candles} />}
@@ -124,6 +187,8 @@ export function App() {
         setSyncInterval={setSyncInterval}
         onManualFetch={handleFetchAllData}
         isFetching={isFetching || isLoadingCandles}
+        wsStatus={wsStatus}
+        onReconnectWs={() => binanceWs.connect('BTC')}
       />
 
       {/* Bottom Global Status Bar */}
@@ -131,17 +196,22 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
-              <span className={`w-2 h-2 rounded-full ${isAutoSync ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-              Mode: {isAutoSync ? `Auto-Sync (${syncInterval}s)` : 'Manual Refresh (Click to sync)'}
+              <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : isAutoSync ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              Mode: {wsStatus === 'connected' ? 'WebSocket Live Stream' : isAutoSync ? `Auto-Sync (${syncInterval}s)` : 'Manual Refresh'}
             </span>
             <span>•</span>
             <span className="text-slate-400">
               Source: {ticker.source} ({ticker.symbol})
             </span>
             <span>•</span>
+            <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+              <Clock className="w-3.5 h-3.5" />
+              Resolution: {timeframe.toUpperCase()}
+            </span>
+            <span>•</span>
             <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
               <Database className="w-3.5 h-3.5" />
-              Dataset: {datasetSource} ({candles.length} candles)
+              Dataset: {datasetSource} ({candles.length} bars)
             </span>
           </div>
 
