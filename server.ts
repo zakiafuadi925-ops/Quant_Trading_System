@@ -284,6 +284,72 @@ async function startServer() {
     return res.json({ success: false, message: "Fallback to client klines", symbol, interval });
   });
 
+  // 1.55. Live Level-2 Order Book Depth endpoint (/api/crypto/depth)
+  const depthCache = new Map<string, { data: any; timestamp: number }>();
+  const DEPTH_CACHE_TTL = 3000;
+
+  app.get("/api/crypto/depth", async (req, res) => {
+    const rawSymbol = String(req.query.symbol || "BTC").toUpperCase();
+    const symbol = rawSymbol.replace("USDT", "").replace("/USDT", "").replace("-USD", "");
+    const limit = Math.min(50, Math.max(5, Number(req.query.limit) || 20));
+    const cacheKey = `${symbol}_${limit}`;
+    const now = Date.now();
+
+    const cached = depthCache.get(cacheKey);
+    if (cached && now - cached.timestamp < DEPTH_CACHE_TTL) {
+      return res.json(cached.data);
+    }
+
+    try {
+      const r = await fetchWithTimeout(
+        `https://api.binance.com/api/v3/depth?symbol=${symbol}USDT&limit=${limit}`,
+        2000
+      );
+      if (r.ok) {
+        const d = await r.json();
+        const payload = {
+          success: true,
+          symbol: `${symbol}/USDT`,
+          lastUpdateId: d.lastUpdateId,
+          bids: d.bids.map((b: string[]) => [parseFloat(b[0]), parseFloat(b[1])]),
+          asks: d.asks.map((a: string[]) => [parseFloat(a[0]), parseFloat(a[1])]),
+          source: "Binance Live Depth",
+          timestamp: new Date().toISOString()
+        };
+        depthCache.set(cacheKey, { data: payload, timestamp: now });
+        return res.json(payload);
+      }
+    } catch (e) {
+      logProxyDebug(`Binance depth proxy failed for ${symbol}:`, e);
+    }
+
+    // Realistic Synthetic Depth Fallback
+    const basePrice = cachedTicker?.price || 85000;
+    const syntheticBids: [number, number][] = [];
+    const syntheticAsks: [number, number][] = [];
+
+    for (let i = 0; i < limit; i++) {
+      const bidPrice = Number((basePrice * (1 - 0.0002 * (i + 1))).toFixed(2));
+      const askPrice = Number((basePrice * (1 + 0.0002 * (i + 1))).toFixed(2));
+      const bidVol = Number((0.25 + Math.sin(i * 0.8) * 0.15 + (i * 0.05)).toFixed(4));
+      const askVol = Number((0.22 + Math.cos(i * 0.7) * 0.14 + (i * 0.04)).toFixed(4));
+      syntheticBids.push([bidPrice, bidVol]);
+      syntheticAsks.push([askPrice, askVol]);
+    }
+
+    const fallbackPayload = {
+      success: true,
+      symbol: `${symbol}/USDT`,
+      lastUpdateId: Date.now(),
+      bids: syntheticBids,
+      asks: syntheticAsks,
+      source: "Synthetic Depth Fallback",
+      timestamp: new Date().toISOString()
+    };
+    depthCache.set(cacheKey, { data: fallbackPayload, timestamp: now });
+    return res.json(fallbackPayload);
+  });
+
   // 1.6. Supported Symbols endpoint
   app.get("/api/crypto/symbols", (_req, res) => {
     res.json({

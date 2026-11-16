@@ -18,12 +18,12 @@ flowchart TD
         A["v5.2.1 PRO<br/>• 9 Strategy Dispatchers<br/>• Supertrend Visuals<br/>• Monte Carlo Web Worker<br/>• Multi-tier CSV Data Loader<br/>• Full Docs & MIT License"]
     end
 
-    subgraph P1["Phase 1: Real-Time Stream (UPCOMING)"]
+    subgraph P1["Phase 1: Real-Time Stream (COMPLETED)"]
         B["v5.3.0<br/>• Binance WebSocket Client<br/>• Level 2 Order Book Depth<br/>• Cumulative Volume Delta (CVD)"]
     end
 
-    subgraph P2["Phase 2: Multi-Asset & Matrix"]
-        C["v5.4.0<br/>• Multi-Timeframe (15m, 1h, 4h, 1d)<br/>• Multi-Asset (BTC, ETH, SOL, PAXG)<br/>• Dynamic Correlation Matrix"]
+    subgraph P2["Phase 2: Multi-Asset & Matrix (IN PROGRESS)"]
+        C["v5.4.0<br/>• Multi-Timeframe (1h, 4h, 1d, 1w)<br/>• Multi-Asset (BTC, ETH, SOL, PAXG)<br/>• Dynamic Correlation Matrix"]
     end
 
     subgraph P3["Phase 3: Live ML Inference"]
@@ -60,20 +60,21 @@ flowchart TD
 
 ---
 
-### 🚀 Phase 1: Real-Time Data Streaming & WebSocket Engine (`v5.3.0`) — *In Progress*
+### ✅ Phase 1: Real-Time Data Streaming & WebSocket Engine (`v5.3.0`) — *Completed*
 *Goal: Transition from manual REST polling to continuous, sub-second market data synchronization.*
 - [x] **Native Binance WebSocket Client**:
   - Direct connection to `wss://stream.binance.com:9443/ws/btcusdt@ticker`.
   - Automatic reconnection logic with exponential backoff and tick flash animation.
-- [ ] **Level 2 Order Book Depth Visualizer**:
-  - Live 20-level bid/ask order book depth chart.
-  - Dynamic bid-ask spread and liquidity imbalance ratio calculation.
-- [ ] **Cumulative Volume Delta (CVD)**:
-  - Real-time separation of market taker buy volume vs. taker sell volume to spot institutional absorption.
+- [x] **Level 2 Order Book Depth Visualizer**:
+  - Live 20-level bid/ask order book depth chart with cumulative volume bars.
+  - Dynamic bid-ask spread and liquidity imbalance ratio calculation with dual-bar meter.
+- [x] **Cumulative Volume Delta (CVD)**:
+  - Real-time separation of market taker buy volume vs. taker sell volume via WebSocket trade stream.
+  - Subplot indicator with delta histogram, cumulative CVD curve, and institutional divergence detection.
 
 ---
 
-### 🌐 Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`)
+### 🚀 Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`) — *In Progress*
 *Goal: Expand research versatility across resolutions and liquid crypto instruments.*
 - [x] **Multi-Timeframe Engine**:
   - Dynamic dropdown selector (`1h`, `4h`, `1d`, `1w`) synchronized across Header, Backtest Tab, and Candlestick Terminal.

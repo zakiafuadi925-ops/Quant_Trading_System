@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CandleData } from '../types';
 import { calculateIndicators } from '../utils/technicalIndicators';
+import { binanceWs, CvdState } from '../services/binanceWs';
+import { OrderBookDepthWidget } from './OrderBookDepthWidget';
 import { 
   BarChart2, 
   Orbit, 
@@ -9,13 +11,15 @@ import {
   Sliders, 
   TrendingUp, 
   Calendar, 
-  RefreshCw,
-  Sparkles,
-  Info,
-  Eye,
-  EyeOff,
-  ShieldCheck,
-  Zap
+  RefreshCw, 
+  Sparkles, 
+  Info, 
+  Eye, 
+  EyeOff, 
+  ShieldCheck, 
+  Zap,
+  Activity,
+  RotateCcw
 } from 'lucide-react';
 
 interface CandlestickChartProps {
@@ -53,7 +57,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const [showBollinger, setShowBollinger] = useState<boolean>(false);
   const [showApogee, setShowApogee] = useState<boolean>(true);
   const [showVolume, setShowVolume] = useState<boolean>(true);
-  const [activeSubplot, setActiveSubplot] = useState<'rsi' | 'macd' | 'none'>('rsi');
+  const [activeSubplot, setActiveSubplot] = useState<'rsi' | 'macd' | 'cvd' | 'none'>('rsi');
+  const [showOrderBook, setShowOrderBook] = useState<boolean>(false);
+  const [cvdState, setCvdState] = useState<CvdState>(binanceWs.cvdState);
+
+  // Subscribe to real-time CVD stream
+  useEffect(() => {
+    const unsub = binanceWs.onCvd((state) => {
+      setCvdState(state);
+    });
+    return () => unsub();
+  }, []);
 
   // Visible window range slider
   const [visibleCount, setVisibleCount] = useState<number>(35);
@@ -224,6 +238,38 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     return visibleCandles.map((c, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)},${getSubplotY(c.rsi, 0, 100)}`).join(' ');
   }, [visibleCandles, subplotHeight]);
 
+  // Cumulative Volume Delta (CVD) Series for visible candles
+  const cvdSeries = useMemo(() => {
+    let runningCvd = 0;
+    return visibleCandles.map((c, i) => {
+      const range = Math.max(0.001, c.high - c.low);
+      const body = c.close - c.open;
+      const estDelta = (c.volume || 100) * (body / range);
+      runningCvd += estDelta;
+      return {
+        index: i,
+        delta: estDelta,
+        cvd: runningCvd,
+        isPositive: estDelta >= 0,
+      };
+    });
+  }, [visibleCandles]);
+
+  const { maxAbsCvd } = useMemo(() => {
+    let max = 1;
+    cvdSeries.forEach((pt) => {
+      if (Math.abs(pt.cvd) > max) max = Math.abs(pt.cvd);
+      if (Math.abs(pt.delta) > max) max = Math.abs(pt.delta);
+    });
+    return { maxAbsCvd: max * 1.15 };
+  }, [cvdSeries]);
+
+  const getCvdY = (val: number) => {
+    const zeroY = 50;
+    const ratio = Math.max(-1, Math.min(1, val / (maxAbsCvd || 1)));
+    return zeroY - ratio * 40;
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 font-sans">
       {/* Top Toolbar: Timeframe, Indicator Toggles & Actions */}
@@ -366,9 +412,22 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             Apogee/Retro
           </button>
 
+          <button
+            onClick={() => setShowOrderBook(!showOrderBook)}
+            className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
+              showOrderBook
+                ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 font-bold'
+                : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'
+            }`}
+            title="Toggle Live Level-2 Order Book Depth Ladder"
+          >
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            L2 Depth
+          </button>
+
           {/* Subplot Toggle */}
           <div className="flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800 ml-1">
-            {(['rsi', 'macd', 'none'] as const).map((sub) => (
+            {(['rsi', 'macd', 'cvd', 'none'] as const).map((sub) => (
               <button
                 key={sub}
                 onClick={() => setActiveSubplot(sub)}
@@ -418,6 +477,20 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
                 🌙 LUNAR APOGEE
               </span>
             )}
+            {activeSubplot === 'cvd' && (
+              <span className="flex items-center gap-1.5 text-amber-400">
+                <span>CVD: <strong>{cvdState.cumulativeDelta > 0 ? '+' : ''}{cvdState.cumulativeDelta} BTC</strong></span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                  cvdState.divergence === 'BULLISH_ABSORPTION' ? 'bg-emerald-500/20 text-emerald-400' :
+                  cvdState.divergence === 'BEARISH_EXHAUSTION' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  {cvdState.divergence}
+                </span>
+                <button onClick={() => binanceWs.resetCvd()} className="text-slate-500 hover:text-white" title="Reset Session CVD">
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </span>
+            )}
             {activeCandle.retrograde && (
               <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
                 🪐 RETROGRADE
@@ -427,16 +500,19 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         </div>
       )}
 
-      {/* Main SVG Candlestick Canvas */}
-      <div 
-        ref={containerRef}
-        className="w-full overflow-x-auto relative cursor-crosshair select-none bg-slate-950/60 rounded-xl p-1 border border-slate-800/80"
-        onMouseLeave={() => setHoveredIdx(null)}
-      >
-        <svg 
-          viewBox={`0 0 ${svgWidth} ${totalHeight}`} 
-          className="w-full h-auto min-w-[750px]"
-        >
+      {/* Candlestick & Optional L2 Depth Split View */}
+      <div className={showOrderBook ? "grid grid-cols-1 xl:grid-cols-4 gap-4 items-start" : "w-full"}>
+        <div className={showOrderBook ? "xl:col-span-3 w-full overflow-hidden" : "w-full"}>
+          {/* Main SVG Candlestick Canvas */}
+          <div 
+            ref={containerRef}
+            className="w-full overflow-x-auto relative cursor-crosshair select-none bg-slate-950/60 rounded-xl p-1 border border-slate-800/80"
+            onMouseLeave={() => setHoveredIdx(null)}
+          >
+            <svg 
+              viewBox={`0 0 ${svgWidth} ${totalHeight}`} 
+              className="w-full h-auto min-w-[750px]"
+            >
           <defs>
             <linearGradient id="bbGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.08" />
@@ -732,8 +808,55 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               })}
             </g>
           )}
+
+          {/* Subplot: CVD Panel (Cumulative Volume Delta) */}
+          {activeSubplot === 'cvd' && (
+            <g transform={`translate(0, ${mainHeight})`}>
+              <line x1={padding.left} y1="0" x2={svgWidth - padding.right} y2="0" stroke="#334155" strokeWidth="1" />
+              <text x={padding.left + 5} y="15" fill="#f59e0b" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                CVD (Cumulative Volume Delta)
+              </text>
+
+              {/* Zero reference line */}
+              <line x1={padding.left} y1={getCvdY(0)} x2={svgWidth - padding.right} y2={getCvdY(0)} stroke="#475569" strokeDasharray="2 2" />
+              <text x={svgWidth - padding.right + 8} y={getCvdY(0) + 3} fill="#94a3b8" fontSize="9" fontFamily="monospace">0.0</text>
+
+              {/* Delta Volume Bars */}
+              {cvdSeries.map((pt, i) => {
+                const isPos = pt.isPositive;
+                const barHeight = Math.min(35, (Math.abs(pt.delta) / (maxAbsCvd || 1)) * 35);
+                return (
+                  <rect
+                    key={i}
+                    x={getX(i) - 2}
+                    y={isPos ? getCvdY(0) - barHeight : getCvdY(0)}
+                    width="4"
+                    height={Math.max(1, barHeight)}
+                    fill={isPos ? '#10b981' : '#f43f5e'}
+                    opacity="0.4"
+                  />
+                );
+              })}
+
+              {/* CVD Cumulative Line */}
+              <path
+                d={cvdSeries.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)},${getCvdY(pt.cvd)}`).join(' ')}
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="2"
+              />
+            </g>
+          )}
         </svg>
       </div>
+    </div>
+
+    {showOrderBook && (
+      <div className="xl:col-span-1 w-full">
+        <OrderBookDepthWidget symbol="BTC" />
+      </div>
+    )}
+  </div>
 
       {/* Bottom Range Slider & Zoom Control */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs font-mono text-slate-400">

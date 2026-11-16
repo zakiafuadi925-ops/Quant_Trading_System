@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [5.3.0] - 2026-11-15
 
 ### 🚀 Added
+- **Level 2 Order Book Depth Visualizer** ([`src/components/OrderBookDepthWidget.tsx`](src/components/OrderBookDepthWidget.tsx), [`server.ts`](server.ts)):
+  - Live 20-level bid/ask order book depth ladder with cumulative liquidity bars.
+  - Dynamic mid-market price, spread readout (USDT & basis points), and dual-bar liquidity imbalance ratio meter.
+  - Multiplexed Binance WebSocket combined stream (`@depth20@100ms`) with server proxy endpoint (`/api/crypto/depth`) fallback.
+  - Interactive split-view terminal integration in [`src/components/CandlestickChart.tsx`](src/components/CandlestickChart.tsx) with depth level selectors (5L, 10L, 15L).
+- **Cumulative Volume Delta (CVD) Analytics Engine** ([`src/services/binanceWs.ts`](src/services/binanceWs.ts), [`src/components/CandlestickChart.tsx`](src/components/CandlestickChart.tsx)):
+  - Real-time classification of taker buy volume vs. taker sell volume via trade stream (`@trade`).
+  - CVD line and delta volume histogram subplot in the Candlestick Terminal with HUD readout.
+  - Institutional divergence detection (`BULLISH_ABSORPTION`, `BEARISH_EXHAUSTION`, `CONVERGENT`, `NEUTRAL`).
+  - Unit tests for depth listeners, CVD accumulation, and session reset ([`tests/binanceWs.test.ts`](tests/binanceWs.test.ts)).
 - **Binance WebSocket Live Stream Engine** ([`src/services/binanceWs.ts`](src/services/binanceWs.ts)):
   - Direct connection to Binance public WebSocket stream (`wss://stream.binance.com:9443/ws/btcusdt@ticker`).
   - Sub-second real-time tick streaming with automatic exponential backoff reconnection.
