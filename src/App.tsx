@@ -10,10 +10,10 @@ import { ModulesTab } from './components/ModulesTab';
 import { RiskManagementTab } from './components/RiskManagementTab';
 import { LiveFeedModal } from './components/LiveFeedModal';
 import { BTC_CANDLES } from './data/historicalData';
-import { fetchLiveBtcPrice, fetchHistoricalCandles, LiveTicker } from './services/cryptoApi';
+import { fetchLivePrice, fetchHistoricalCandles, LiveTicker } from './services/cryptoApi';
 import { binanceWs, WsStatus } from './services/binanceWs';
 import { CandleData } from './types';
-import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database, Clock } from 'lucide-react';
+import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database, Clock, Coins } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -22,6 +22,9 @@ export function App() {
   const [syncInterval, setSyncInterval] = useState<number>(30);
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [isLoadingCandles, setIsLoadingCandles] = useState<boolean>(false);
+
+  // Active Multi-Asset Universe state (BTC, ETH, SOL, BNB, ADA)
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC');
 
   // Timeframe resolution state (1h, 4h, 1d, 1w)
   const [timeframe, setTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
@@ -44,14 +47,14 @@ export function App() {
     source: 'Binance API'
   });
 
-  // Fetch live market data (ticker + full dynamic candle dataset for active timeframe)
+  // Fetch live market data (ticker + full dynamic candle dataset for active asset and timeframe)
   const handleFetchAllData = useCallback(async () => {
     setIsFetching(true);
     setIsLoadingCandles(true);
     try {
       const [tickerData, dynamicCandles] = await Promise.all([
-        fetchLiveBtcPrice(),
-        fetchHistoricalCandles('BTC', 120, timeframe)
+        fetchLivePrice(selectedSymbol),
+        fetchHistoricalCandles(selectedSymbol, 120, timeframe)
       ]);
 
       setTicker(tickerData);
@@ -65,14 +68,14 @@ export function App() {
       setIsFetching(false);
       setIsLoadingCandles(false);
     }
-  }, [timeframe]);
+  }, [selectedSymbol, timeframe]);
 
   // Handle switching timeframe across the entire application & strategy backtest engine
   const handleTimeframeChange = useCallback(async (newTf: '1h' | '4h' | '1d' | '1w') => {
     setTimeframe(newTf);
     setIsLoadingCandles(true);
     try {
-      const dynamicCandles = await fetchHistoricalCandles('BTC', 120, newTf);
+      const dynamicCandles = await fetchHistoricalCandles(selectedSymbol, 120, newTf);
       if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
         setCandles(dynamicCandles.candles);
         setDatasetSource(dynamicCandles.source);
@@ -82,11 +85,39 @@ export function App() {
     } finally {
       setIsLoadingCandles(false);
     }
-  }, []);
+  }, [selectedSymbol]);
+
+  // Handle switching active asset across live WS stream, order book, and backtest dataset
+  const handleSymbolChange = useCallback(async (newSymbol: string) => {
+    setSelectedSymbol(newSymbol);
+    setIsLoadingCandles(true);
+    setIsFetching(true);
+
+    // Switch multiplexed WebSocket stream immediately
+    binanceWs.switchSymbol(newSymbol);
+
+    try {
+      const [tickerData, dynamicCandles] = await Promise.all([
+        fetchLivePrice(newSymbol),
+        fetchHistoricalCandles(newSymbol, 120, timeframe)
+      ]);
+
+      setTicker(tickerData);
+      if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
+        setCandles(dynamicCandles.candles);
+        setDatasetSource(dynamicCandles.source);
+      }
+    } catch (e) {
+      console.warn(`Failed to switch symbol to ${newSymbol}`, e);
+    } finally {
+      setIsLoadingCandles(false);
+      setIsFetching(false);
+    }
+  }, [timeframe]);
 
   // Connect to Binance WebSocket for sub-second live price streaming
   useEffect(() => {
-    binanceWs.connect('BTC');
+    binanceWs.connect(selectedSymbol);
 
     const unsubPrice = binanceWs.onPrice((tick) => {
       setTicker((prev) => ({
@@ -154,6 +185,8 @@ export function App() {
         wsStatus={wsStatus}
         selectedTimeframe={timeframe}
         onTimeframeChange={handleTimeframeChange}
+        selectedSymbol={selectedSymbol}
+        onSymbolChange={handleSymbolChange}
       />
 
       {/* Main Content Area */}
@@ -165,6 +198,8 @@ export function App() {
             timeframe={timeframe}
             onTimeframeChange={handleTimeframeChange}
             isLoadingCandles={isLoadingCandles}
+            symbol={selectedSymbol}
+            onSymbolChange={handleSymbolChange}
           />
         )}
         {activeTab === 'risk' && <RiskManagementTab candles={candles} currentPrice={ticker.price} />}
@@ -188,7 +223,7 @@ export function App() {
         onManualFetch={handleFetchAllData}
         isFetching={isFetching || isLoadingCandles}
         wsStatus={wsStatus}
-        onReconnectWs={() => binanceWs.connect('BTC')}
+        onReconnectWs={() => binanceWs.connect(selectedSymbol)}
       />
 
       {/* Bottom Global Status Bar */}
@@ -200,8 +235,13 @@ export function App() {
               Mode: {wsStatus === 'connected' ? 'WebSocket Live Stream' : isAutoSync ? `Auto-Sync (${syncInterval}s)` : 'Manual Refresh'}
             </span>
             <span>•</span>
+            <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+              <Coins className="w-3.5 h-3.5" />
+              Asset: {selectedSymbol}/USDT
+            </span>
+            <span>•</span>
             <span className="text-slate-400">
-              Source: {ticker.source} ({ticker.symbol})
+              Source: {ticker.source}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1.5 text-amber-400 font-medium">

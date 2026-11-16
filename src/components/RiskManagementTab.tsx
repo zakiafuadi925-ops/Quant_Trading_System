@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CandleData } from '../types';
 import { 
   ShieldAlert, 
@@ -55,6 +55,41 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
 
   // Interactive Selected Cell in Correlation Matrix
   const [selectedCorrPair, setSelectedCorrPair] = useState<{ row: number; col: number } | null>({ row: 0, col: 2 });
+
+  // Cross-Asset Universe Correlation Matrix States
+  const [matrixMode, setMatrixMode] = useState<'cross-asset' | 'factor'>('cross-asset');
+  const [crossAssetWindow, setCrossAssetWindow] = useState<30 | 90>(90);
+  const [crossAssetData, setCrossAssetData] = useState<{
+    assets: string[];
+    matrix: number[][];
+    averageCorrelation: number;
+    diversificationScore: number;
+    window: number;
+  } | null>(null);
+  const [selectedAssetPair, setSelectedAssetPair] = useState<{ row: number; col: number }>({ row: 0, col: 1 });
+  const [isLoadingCrossAsset, setIsLoadingCrossAsset] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCrossAssetCorrelation = async () => {
+      setIsLoadingCrossAsset(true);
+      try {
+        const res = await fetch(`/api/crypto/correlation?window=${crossAssetWindow}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success) {
+            setCrossAssetData(data);
+          }
+        }
+      } catch (err) {
+        console.warn('Cross asset correlation fetch error:', err);
+      } finally {
+        if (isMounted) setIsLoadingCrossAsset(false);
+      }
+    };
+    fetchCrossAssetCorrelation();
+    return () => { isMounted = false; };
+  }, [crossAssetWindow]);
 
   // Filter historical candles based on selected period
   const activeCandles = useMemo(() => {
@@ -511,6 +546,42 @@ export const RiskManagementTab: React.FC<RiskManagementTabProps> = ({ candles, c
 
     return { v1, v2, r, r2, relationship, explanation };
   }, [corrData, selectedCorrPair]);
+
+  // Interpretation helper for selected cross-asset pair
+  const selectedCrossAssetInsight = useMemo(() => {
+    if (!crossAssetData || !selectedAssetPair) return null;
+    const a1 = crossAssetData.assets[selectedAssetPair.row];
+    const a2 = crossAssetData.assets[selectedAssetPair.col];
+    const r = crossAssetData.matrix[selectedAssetPair.row]?.[selectedAssetPair.col] ?? 1.0;
+    const r2 = Math.pow(r, 2) * 100;
+
+    let relationship = 'High Positive Co-movement';
+    let explanation = '';
+
+    if (selectedAssetPair.row === selectedAssetPair.col) {
+      return {
+        a1, a2, r: 1.0, r2: 100,
+        relationship: 'Self-Correlation Identity',
+        explanation: `${a1} perfectly correlates with itself ($r = 1.0$). Baseline identity diagonal.`
+      };
+    }
+
+    if (r >= 0.8) {
+      relationship = 'High Positive Correlation';
+      explanation = `${a1} and ${a2} exhibit strong synchrony ($r = ${r.toFixed(2)}$). Adding both provides minimal diversification benefit (${(100 - r2).toFixed(1)}% variance independence).`;
+    } else if (r >= 0.5) {
+      relationship = 'Moderate Positive Correlation';
+      explanation = `${a1} and ${a2} have moderate co-movement ($r = ${r.toFixed(2)}$). Provides decent diversification buffer during localized token events.`;
+    } else if (r >= 0.2) {
+      relationship = 'Low Positive Correlation';
+      explanation = `${a1} and ${a2} move somewhat independently ($r = ${r.toFixed(2)}$). High portfolio diversification value.`;
+    } else {
+      relationship = 'Independent / Orthogonal';
+      explanation = `${a1} and ${a2} show near-zero or inverse correlation ($r = ${r.toFixed(2)}$), functioning as an effective natural hedge.`;
+    }
+
+    return { a1, a2, r, r2, relationship, explanation };
+  }, [crossAssetData, selectedAssetPair]);
 
   // Distribution histogram buckets for returns
   const histogramBuckets = useMemo(() => {

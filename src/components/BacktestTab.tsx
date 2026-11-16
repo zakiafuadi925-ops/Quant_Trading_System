@@ -31,6 +31,8 @@ interface BacktestTabProps {
   timeframe?: '1h' | '4h' | '1d' | '1w';
   onTimeframeChange?: (tf: '1h' | '4h' | '1d' | '1w') => void;
   isLoadingCandles?: boolean;
+  symbol?: string;
+  onSymbolChange?: (symbol: string) => void;
 }
 
 export const BacktestTab: React.FC<BacktestTabProps> = ({ 
@@ -38,7 +40,9 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
   currentPrice,
   timeframe = '1d',
   onTimeframeChange,
-  isLoadingCandles = false
+  isLoadingCandles = false,
+  symbol = 'BTC',
+  onSymbolChange
 }) => {
   const [initialCapital, setInitialCapital] = useState<number>(1000);
   const [feeRate, setFeeRate] = useState<number>(0.001); // 0.1%
@@ -548,6 +552,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
         currentPrice={currentPrice} 
         timeframe={timeframe}
         onTimeframeChange={onTimeframeChange}
+        symbol={symbol}
       />
 
       {/* Main Equity Comparison Chart */}

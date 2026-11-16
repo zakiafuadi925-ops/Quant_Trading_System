@@ -57,6 +57,21 @@ describe('BinanceWsManager', () => {
     unsubscribe();
   });
 
+  it('supports dynamic symbol switching across multi-asset universe', () => {
+    binanceWs.connect('BTC');
+    expect(binanceWs.getSymbol()).toBe('BTC');
+
+    // Switch to ETH
+    binanceWs.switchSymbol('ETH');
+    expect(binanceWs.getSymbol()).toBe('ETH');
+    expect(binanceWs.latestDepth).toBeNull();
+    expect(binanceWs.cvdState.cumulativeDelta).toBe(0);
+
+    // Switch to SOL
+    binanceWs.switchSymbol('SOL');
+    expect(binanceWs.getSymbol()).toBe('SOL');
+  });
+
   it('handles disconnect cleanly without throwing', () => {
     expect(() => {
       binanceWs.disconnect();

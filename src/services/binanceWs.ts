@@ -102,18 +102,26 @@ class BinanceWsManager {
   public status: WsStatus = 'disconnected';
 
   public connect(symbol = 'BTC'): void {
+    this.isExplicitlyClosed = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    const cleanSymbol = symbol.toLowerCase().replace('usdt', '').replace('/usdt', '') + 'usdt';
+    this.currentSymbol = cleanSymbol;
+
     if (typeof window === 'undefined' || typeof WebSocket === 'undefined') {
       return;
     }
 
-    this.isExplicitlyClosed = false;
-    const cleanSymbol = symbol.toLowerCase().replace('usdt', '').replace('/usdt', '') + 'usdt';
-    this.currentSymbol = cleanSymbol;
-
-    // Close existing connection if switching symbols
+    // Close existing connection cleanly if switching symbols
     if (this.ws) {
+      const oldWs = this.ws;
+      this.ws = null;
       try {
-        this.ws.close();
+        oldWs.onclose = null;
+        oldWs.onerror = null;
+        oldWs.close();
       } catch (_) {}
     }
 
@@ -373,6 +381,20 @@ class BinanceWsManager {
       recentTrades: [],
     };
     this.cvdCallbacks.forEach((cb) => cb(this.cvdState));
+  }
+
+  public switchSymbol(symbol: string): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.resetCvd();
+    this.latestDepth = null;
+    this.connect(symbol);
+  }
+
+  public getSymbol(): string {
+    return this.currentSymbol.replace('usdt', '').toUpperCase();
   }
 
   public onPrice(callback: WsPriceCallback): () => void {

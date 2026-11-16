@@ -15,7 +15,7 @@ import {
   Radio,
   Clock
 } from 'lucide-react';
-import { LiveTicker } from '../services/cryptoApi';
+import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 import { WsStatus } from '../services/binanceWs';
 
 interface HeaderProps {
@@ -29,6 +29,8 @@ interface HeaderProps {
   wsStatus?: WsStatus;
   selectedTimeframe?: '1h' | '4h' | '1d' | '1w';
   onTimeframeChange?: (tf: '1h' | '4h' | '1d' | '1w') => void;
+  selectedSymbol?: string;
+  onSymbolChange?: (symbol: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -41,10 +43,20 @@ export const Header: React.FC<HeaderProps> = ({
   isAutoSync,
   wsStatus = 'disconnected',
   selectedTimeframe = '1d',
-  onTimeframeChange
+  onTimeframeChange,
+  selectedSymbol = 'BTC',
+  onSymbolChange
 }) => {
   const [prevPrice, setPrevPrice] = useState<number>(ticker.price);
   const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null);
+
+  const SYMBOL_ICONS: Record<string, string> = {
+    BTC: '₿',
+    ETH: 'Ξ',
+    SOL: '◎',
+    BNB: '🔶',
+    ADA: '₳',
+  };
 
   useEffect(() => {
     if (ticker.price > prevPrice) {
@@ -76,25 +88,47 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-16 border-b border-slate-800/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20">
-              <span className="font-bold text-white text-lg font-mono">₿</span>
+              <span className="font-bold text-white text-lg font-mono">
+                {SYMBOL_ICONS[selectedSymbol.toUpperCase()] || '₿'}
+              </span>
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                  Bitcoin Research &amp; Quant Lab
+                  Quant Trading System
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                    v5.3.0
+                    v5.4.0
                   </span>
                 </h1>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Astronacci Cycles • Bidirectional LSTM • Geometric Brownian Motion • Dynamic Allocation
+                Multi-Asset Matrix • WebSocket Streaming • L2 Depth &amp; CVD • Ensemble Alpha
               </p>
             </div>
           </div>
 
           {/* Right Market Status Bar & Auto Fetch Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Multi-Asset Universe Quick Switcher */}
+            {onSymbolChange && (
+              <div className="flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800 font-mono text-xs shadow-inner">
+                {SUPPORTED_SYMBOLS.map((s) => (
+                  <button
+                    key={s.symbol}
+                    onClick={() => onSymbolChange(s.symbol)}
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all uppercase flex items-center gap-1 ${
+                      selectedSymbol.toUpperCase() === s.symbol
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title={`Switch active asset to ${s.name} (${s.pair})`}
+                  >
+                    <span>{s.symbol}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* WebSocket Stream Badge */}
             <div className="hidden md:flex items-center">
               {wsStatus === 'connected' ? (

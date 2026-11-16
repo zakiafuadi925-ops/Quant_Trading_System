@@ -27,13 +27,15 @@ interface CandlestickChartProps {
   currentPrice?: number;
   timeframe?: '1h' | '4h' | '1d' | '1w';
   onTimeframeChange?: (tf: '1h' | '4h' | '1d' | '1w') => void;
+  symbol?: string;
 }
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = ({ 
   initialCandles, 
   currentPrice,
   timeframe: propTimeframe,
-  onTimeframeChange
+  onTimeframeChange,
+  symbol = 'BTC'
 }) => {
   const [internalTimeframe, setInternalTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
   const activeTf = propTimeframe || internalTimeframe;
@@ -853,7 +855,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
 
     {showOrderBook && (
       <div className="xl:col-span-1 w-full">
-        <OrderBookDepthWidget symbol="BTC" />
+        <OrderBookDepthWidget symbol={symbol} />
       </div>
     )}
   </div>
