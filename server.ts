@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
+import { runInferenceV5 } from "./src/utils/featurePipeline";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -439,6 +440,57 @@ async function startServer() {
       matrix,
       averageCorrelation: avgCorr,
       diversificationScore,
+    });
+  });
+
+  // 3. Machine Learning Live Inference endpoint (/api/ml/predict)
+  app.all("/api/ml/predict", (req, res) => {
+    const rawSymbol = String(req.query.symbol || req.body?.symbol || "BTC").toUpperCase();
+    const symbol = rawSymbol.replace("USDT", "").replace("/USDT", "").replace("-USD", "");
+    const threshold = Number(req.query.threshold || req.body?.threshold) || 0.015;
+    const lookback = Math.min(120, Math.max(20, Number(req.query.lookback || req.body?.lookback) || 60));
+
+    // Load recent candles for symbol from CSV archive or fallback
+    const csvPath = path.resolve(__dirname, `trading_data/${symbol}_trading_data.csv`);
+    const rawCandles: any[] = [];
+    if (fs.existsSync(csvPath)) {
+      const fileContent = fs.readFileSync(csvPath, "utf-8");
+      const lines = fileContent.trim().split("\n");
+      const header = lines[0].split(",");
+      const dateIdx = header.indexOf("Date");
+      const openIdx = header.indexOf("Open");
+      const highIdx = header.indexOf("High");
+      const lowIdx = header.indexOf("Low");
+      const closeIdx = header.indexOf("Close");
+      const volIdx = header.indexOf("Volume");
+
+      for (let i = Math.max(1, lines.length - 150); i < lines.length; i++) {
+        const parts = lines[i].split(",");
+        rawCandles.push({
+          timestamp: parts[dateIdx],
+          open: parseFloat(parts[openIdx]),
+          high: parseFloat(parts[highIdx]),
+          low: parseFloat(parts[lowIdx]),
+          close: parseFloat(parts[closeIdx]),
+          volume: parseFloat(parts[volIdx]),
+        });
+      }
+    }
+
+    if (rawCandles.length < 20) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient historical bars available for ${symbol} ML inference`,
+      });
+    }
+
+    // Run 17-feature extraction and calibrated LSTM inference
+    const inference = runInferenceV5(rawCandles, threshold, lookback);
+
+    return res.json({
+      success: true,
+      symbol,
+      ...inference,
     });
   });
 

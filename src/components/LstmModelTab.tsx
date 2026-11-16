@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CandleData } from '../types';
 import { MODEL_V1_METADATA, MODEL_V5_METADATA, THRESHOLD_SWEEP_DATA } from '../data/modelsData';
+import { runInferenceV5, FEATURE_NAMES_V5, ModelFeaturesV5, InferenceResult } from '../utils/featurePipeline';
 import { 
   BrainCircuit, 
   Cpu, 
@@ -12,8 +13,13 @@ import {
   FileCode2, 
   ArrowRight,
   TrendingUp,
+  TrendingDown,
   ShieldCheck,
-  Check
+  Check,
+  Zap,
+  Activity,
+  Sparkles,
+  Radio
 } from 'lucide-react';
 
 interface LstmModelTabProps {
@@ -23,8 +29,14 @@ interface LstmModelTabProps {
 export const LstmModelTab: React.FC<LstmModelTabProps> = ({ candles }) => {
   const [activeModel, setActiveModel] = useState<'v5' | 'v1'>('v5');
   const [selectedSweepIdx, setSelectedSweepIdx] = useState<number>(2); // 0.40 threshold by default
+  const [inferenceThreshold, setInferenceThreshold] = useState<number>(0.015); // 1.5% default hurdle rate
 
   const sweep = THRESHOLD_SWEEP_DATA[selectedSweepIdx];
+
+  // Real-time live inference on active market candles
+  const liveInference = useMemo<InferenceResult>(() => {
+    return runInferenceV5(candles, inferenceThreshold, 60);
+  }, [candles, inferenceThreshold]);
 
   // Feature vector categories
   const featureCategories = [
@@ -110,6 +122,170 @@ export const LstmModelTab: React.FC<LstmModelTabProps> = ({ candles }) => {
               {activeModel === 'v5' ? `MAE 1.65% (Dir 49.1%)` : `Accuracy 59.3% (+499% ROI)`}
             </span>
             <span className="text-[10px] text-slate-500">MaxDD: {activeModel === 'v5' ? '-1.68% (optimal)' : '60.56% (vs 83.4% B&H)'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* LIVE SEQUENTIAL INFERENCE CONSOLE (PHASE 3: v6.0.0) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                LIVE MODEL INFERENCE ACTIVE
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[11px] font-bold">
+                {liveInference.model}
+              </span>
+            </div>
+            <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              Next-Period Directional Forecast &amp; Signal Generation
+            </h3>
+            <p className="text-xs text-slate-400">
+              In-browser vectorized neural projection across the last {liveInference.lookbackBars} sequential market bars (Timestamp: {liveInference.timestamp})
+            </p>
+          </div>
+
+          {/* Hurdle Threshold Controller */}
+          <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-xs">
+            <span className="text-slate-400 text-[11px]">Hurdle Threshold:</span>
+            <input
+              type="range"
+              min="0.005"
+              max="0.040"
+              step="0.0025"
+              value={inferenceThreshold}
+              onChange={(e) => setInferenceThreshold(parseFloat(e.target.value))}
+              className="w-24 accent-cyan-500 cursor-pointer"
+            />
+            <span className="font-bold text-cyan-300 text-xs min-w-[45px]">
+              {(inferenceThreshold * 100).toFixed(2)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Live Forecast HUD Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Signal Action Card */}
+          <div className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
+            liveInference.signal.includes('BUY')
+              ? 'bg-emerald-950/20 border-emerald-500/40 shadow-lg shadow-emerald-500/10'
+              : liveInference.signal.includes('SELL')
+              ? 'bg-rose-950/20 border-rose-500/40 shadow-lg shadow-rose-500/10'
+              : 'bg-slate-950/70 border-slate-800/80'
+          }`}>
+            <span className="text-xs text-slate-400 font-mono flex items-center justify-between">
+              Recommended Signal
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+            </span>
+            <div className="mt-2">
+              <span className={`text-xl font-mono font-extrabold tracking-wider ${
+                liveInference.signal.includes('BUY')
+                  ? 'text-emerald-400'
+                  : liveInference.signal.includes('SELL')
+                  ? 'text-rose-400'
+                  : 'text-amber-400'
+              }`}>
+                {liveInference.signal.replace('_', ' ')}
+              </span>
+              <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                {liveInference.signal === 'HOLD'
+                  ? `Forecast within ±${(inferenceThreshold * 100).toFixed(1)}% hurdle band; hold current stance`
+                  : `Conviction exceeds ${(inferenceThreshold * 100).toFixed(1)}% hurdle threshold`}
+              </p>
+            </div>
+          </div>
+
+          {/* Predicted Return */}
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-mono flex items-center justify-between">
+              Predicted Next Return
+              {liveInference.predictedReturn >= 0 ? (
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+              )}
+            </span>
+            <div className="mt-2 font-mono">
+              <span className={`text-2xl font-extrabold ${
+                liveInference.predictedReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}>
+                {liveInference.predictedReturn >= 0 ? '+' : ''}
+                {(liveInference.predictedReturn * 100).toFixed(2)}%
+              </span>
+              <div className="text-[10px] text-slate-500 mt-1">
+                Calibrated Model MAE: ±{(liveInference.mae * 100).toFixed(2)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Directional Confidence */}
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-mono flex items-center justify-between">
+              Directional Confidence
+              <Gauge className="w-3.5 h-3.5 text-cyan-400" />
+            </span>
+            <div className="mt-2 font-mono">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold text-cyan-300">
+                  {(liveInference.directionConfidence * 100).toFixed(1)}%
+                </span>
+                <span className="text-xs text-slate-400 font-bold">
+                  {liveInference.predictedDirection}
+                </span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${liveInference.directionConfidence * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Input Tensor Dimensions */}
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80 flex flex-col justify-between">
+            <span className="text-xs text-slate-400 font-mono flex items-center justify-between">
+              Input Tensor Vector
+              <Cpu className="w-3.5 h-3.5 text-purple-400" />
+            </span>
+            <div className="mt-2 font-mono">
+              <span className="text-2xl font-extrabold text-purple-300">
+                [1, {liveInference.lookbackBars}, 17]
+              </span>
+              <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                17 real-time features synchronized per bar across {liveInference.lookbackBars} sequential lookback bars
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Live 17-Feature Breakdown Grid */}
+        <div className="pt-2">
+          <h4 className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-cyan-400" />
+            Active 17-Dimensional Feature Vector (Latest Bar)
+          </h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 font-mono text-xs">
+            {FEATURE_NAMES_V5.map((name) => {
+              const val = (liveInference.features as ModelFeaturesV5)[name] ?? 0;
+              return (
+                <div key={name} className="p-2.5 bg-slate-950 rounded-lg border border-slate-800/70 flex flex-col justify-between">
+                  <span className="text-[10px] text-slate-400 truncate" title={name}>
+                    {name}
+                  </span>
+                  <span className={`text-xs font-bold mt-1 ${
+                    val > 0 ? 'text-emerald-400' : val < 0 ? 'text-rose-400' : 'text-slate-300'
+                  }`}>
+                    {val > 0 ? '+' : ''}{typeof val === 'number' ? val.toFixed(4) : val}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

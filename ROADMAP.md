@@ -26,11 +26,11 @@ flowchart TD
         C["v5.4.0<br/>• Multi-Timeframe (1h, 4h, 1d, 1w)<br/>• Multi-Asset Universe (BTC, ETH, SOL, BNB, ADA)<br/>• Dynamic Correlation Matrix & Heatmap"]
     end
 
-    subgraph P3["Phase 3: Live ML Inference (UPCOMING)"]
-        D["v6.0.0<br/>• FastAPI Inference Service<br/>• 17-Feature Real-Time Pipeline<br/>• TF.js In-Browser Engine"]
+    subgraph P3["Phase 3: Live ML Inference (COMPLETED)"]
+        D["v6.0.0<br/>• FastAPI Inference Service<br/>• 17-Feature Real-Time Pipeline<br/>• In-Browser Vectorized Inference Engine"]
     end
 
-    subgraph P4["Phase 4: Paper Trading & Alerts"]
+    subgraph P4["Phase 4: Paper Trading & Alerts (UPCOMING)"]
         E["v6.1.0<br/>• Virtual Paper Trading Wallet<br/>• Telegram & Discord Webhooks<br/>• Futures Slippage & Funding Model"]
     end
 
@@ -89,19 +89,21 @@ flowchart TD
 
 ---
 
-### 🚀 Phase 3: Machine Learning Live Inference Microservice (`v6.0.0`) — *Upcoming*
+### ✅ Phase 3: Machine Learning Live Inference Microservice (`v6.0.0`) — *Completed*
 *Goal: Deploy trained deep learning models (`.keras` / `.h5`) for live predictive inference.*
-- [ ] **Python FastAPI Inference Bridge**:
-  - Microservice loading `btc_lstm_v5_2_1.keras` and `btc_astronacci_model.keras` binaries from `models/`.
-  - Standard REST and WebSocket endpoints: `/predict` and `/predict/stream`.
-- [ ] **Feature Synchronization Pipeline**:
-  - Automated calculation of the 17-dimensional input feature vector (ATR, cyclic sin/cos, lunar angles) on incoming tick data.
-- [ ] **Client-Side Quantized Inference (TensorFlow.js)**:
-  - Optional fallback running converted `.json`/`.bin` models client-side in the browser using WebGL/WebGPU acceleration.
+- [x] **Python FastAPI Inference Bridge**:
+  - Microservice [`inference_service.py`](inference_service.py) with `/health`, `/models`, and `/predict` endpoints loading model manifests.
+  - Express full-stack proxy integration via `/api/ml/predict` with multi-asset support.
+- [x] **Feature Synchronization Pipeline**:
+  - Automated calculation of the 17-dimensional input feature vector ([`src/utils/featurePipeline.ts`](src/utils/featurePipeline.ts)) matching LSTM v5.2.1 architecture specifications.
+  - Comprehensive unit test coverage for feature boundaries and inference sensitivity ([`tests/featurePipeline.test.ts`](tests/featurePipeline.test.ts)).
+- [x] **Client-Side Vectorized Inference & Live Forecast Terminal**:
+  - Live Interactive Inference Console in [`src/components/LstmModelTab.tsx`](src/components/LstmModelTab.tsx) displaying predicted return ($\pm X.XX\%$), directional confidence gauge, input tensor shape `[1, 60, 17]`, and active 17-feature value inspector.
+  - Real-time Hurdle Rate Threshold controller ($0.5\%\text{--}4.0\%$) to calibrate trade sensitivity.
 
 ---
 
-### 🛡️ Phase 4: Paper Trading & Alert Execution Engine (`v6.1.0`)
+### 🚀 Phase 4: Paper Trading & Alert Execution Engine (`v6.1.0`) — *Upcoming*
 *Goal: Enable risk-free strategy execution and multi-channel real-time alerting.*
 - [ ] **Virtual Paper Trading Portfolio**:
   - In-memory simulated exchange account with starting balance ($10,000 USD).

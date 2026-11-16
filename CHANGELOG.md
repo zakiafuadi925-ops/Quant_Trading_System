@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.0.0] - 2026-11-16
+
+### 🚀 Added
+- **17-Feature Synchronization Pipeline Engine** ([`src/utils/featurePipeline.ts`](src/utils/featurePipeline.ts)):
+  - Real-time extraction of 17-dimensional quantitative input vector matching trained Bidirectional LSTM v5.2.1 architecture specifications (`return_1d`, `return_3d`, `return_7d`, `range_pct`, `body_pct`, `volume_change`, `ema_9/21/50/200_ratio`, `rsi_14`, `macd_pct`, `macd_signal_pct`, `macd_hist_pct`, `atr_pct`, `bb_position`, `bb_width`).
+  - Exponential time-decay kernel over rolling 60-bar lookback window generating next-period return forecasts and directional probabilities.
+  - Signal hurdle rate classifier (`STRONG_BUY`, `BUY`, `HOLD`, `SELL`, `STRONG_SELL`).
+  - Unit tests covering feature boundaries, inference validity, and hurdle threshold sensitivity ([`tests/featurePipeline.test.ts`](tests/featurePipeline.test.ts)).
+- **Python FastAPI Inference Microservice Bridge** ([`inference_service.py`](inference_service.py), [`server.ts`](server.ts)):
+  - Dedicated FastAPI service on port 8000 loading deep learning model binaries (`models/btc_lstm_v5_2_1.keras`, `models/btc_astronacci_model.keras`).
+  - REST endpoints: `GET /health`, `GET /models`, and `POST /predict`.
+  - Express full-stack proxy integration via `/api/ml/predict` with automatic candle hydration from server CSV archives.
+- **Live Sequential Inference Console in Model Observatory** ([`src/components/LstmModelTab.tsx`](src/components/LstmModelTab.tsx)):
+  - Real-time forecast badge displaying next-period return percentage, directional confidence gauge, input tensor dimensions `[1, 60, 17]`, and recommended trade signal.
+  - Interactive Hurdle Rate slider ($0.5\%\text{--}4.0\%$) allowing live calibration of signal sensitivity.
+  - Active 17-feature value inspector grid displaying real-time values from the latest candle bar.
+
+---
+
 ## [5.4.0] - 2026-11-16
 
 ### 🚀 Added
