@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.4.0] - 2026-11-16
+
+### 🚀 Added
+- **Multi-Asset Universe Engine & Dynamic Symbol Switching** ([`src/App.tsx`](src/App.tsx), [`src/components/Header.tsx`](src/components/Header.tsx), [`src/services/binanceWs.ts`](src/services/binanceWs.ts)):
+  - Full support for 5 high-liquidity crypto assets: `BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `BNB/USDT`, and `ADA/USDT`.
+  - Header symbol quick-selector with dynamic coin branding icons (`₿`, `Ξ`, `◎`, `🔶`, `₳`) and tick flash animation.
+  - Seamless WebSocket stream hot-swapping via `binanceWs.switchSymbol()` without tearing down UI listeners.
+  - Dynamic dataset hydration supporting multi-timeframe backtests and candlestick rendering per selected coin.
+- **Dynamic Cross-Asset Risk & Correlation Matrix** ([`src/components/RiskManagementTab.tsx`](src/components/RiskManagementTab.tsx), [`server.ts`](server.ts)):
+  - Rolling Pearson correlation matrix endpoint (`/api/crypto/correlation`) with configurable `30D` and `90D` lookback windows.
+  - Dual-mode matrix interface toggling between **Cross-Asset Universe** and **Factor Volatility Regimes**.
+  - Real-time **Diversification Score** ($0\text{--}100$) based on average pairwise correlation and concentration risk.
+  - Detailed pair-level quantitative breakdown: $R^2$ variance co-movement, relationship regime classification, and portfolio hedging guidance.
+- **Unit Testing for Multi-Asset Operations** ([`tests/binanceWs.test.ts`](tests/binanceWs.test.ts)):
+  - Added unit tests verifying dynamic symbol switching, state reset, and active symbol retrieval.
+
+---
+
 ## [5.3.0] - 2026-11-15
 
 ### 🚀 Added

@@ -22,11 +22,11 @@ flowchart TD
         B["v5.3.0<br/>• Binance WebSocket Client<br/>• Level 2 Order Book Depth<br/>• Cumulative Volume Delta (CVD)"]
     end
 
-    subgraph P2["Phase 2: Multi-Asset & Matrix (IN PROGRESS)"]
-        C["v5.4.0<br/>• Multi-Timeframe (1h, 4h, 1d, 1w)<br/>• Multi-Asset (BTC, ETH, SOL, PAXG)<br/>• Dynamic Correlation Matrix"]
+    subgraph P2["Phase 2: Multi-Asset & Matrix (COMPLETED)"]
+        C["v5.4.0<br/>• Multi-Timeframe (1h, 4h, 1d, 1w)<br/>• Multi-Asset Universe (BTC, ETH, SOL, BNB, ADA)<br/>• Dynamic Correlation Matrix & Heatmap"]
     end
 
-    subgraph P3["Phase 3: Live ML Inference"]
+    subgraph P3["Phase 3: Live ML Inference (UPCOMING)"]
         D["v6.0.0<br/>• FastAPI Inference Service<br/>• 17-Feature Real-Time Pipeline<br/>• TF.js In-Browser Engine"]
     end
 
@@ -74,21 +74,22 @@ flowchart TD
 
 ---
 
-### 🚀 Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`) — *In Progress*
+### ✅ Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`) — *Completed*
 *Goal: Expand research versatility across resolutions and liquid crypto instruments.*
 - [x] **Multi-Timeframe Engine**:
   - Dynamic dropdown selector (`1h`, `4h`, `1d`, `1w`) synchronized across Header, Backtest Tab, and Candlestick Terminal.
   - Full strategy recalculation on active resolution bars.
-- [ ] **Multi-Asset Universe Support**:
-  - Support for `ETH/USDT`, `SOL/USDT`, `BNB/USDT`, and `PAXG/USDT` (Tokenized Gold).
-  - Dynamic symbol selector in header and backtest tabs.
-- [ ] **Dynamic Cross-Asset Risk Matrix**:
-  - Rolling 30-day and 90-day correlation heatmaps.
-  - Automatic diversification penalty for heavily correlated assets in portfolio rebalancing.
+- [x] **Multi-Asset Universe Support**:
+  - Support for `BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `BNB/USDT`, and `ADA/USDT`.
+  - Dynamic symbol selector in header and backtest tabs with automatic WebSocket multiplex stream switching (`switchSymbol`).
+  - Dynamic multi-tier candle hydration with local CSV archives and Binance live API failover.
+- [x] **Dynamic Cross-Asset Risk Matrix**:
+  - Rolling 30-day and 90-day Pearson correlation heatmaps (`/api/crypto/correlation`).
+  - Cross-asset diversification score (0–100), average pairwise correlation, and portfolio concentration penalty warnings.
 
 ---
 
-### 🧠 Phase 3: Machine Learning Live Inference Microservice (`v6.0.0`)
+### 🚀 Phase 3: Machine Learning Live Inference Microservice (`v6.0.0`) — *Upcoming*
 *Goal: Deploy trained deep learning models (`.keras` / `.h5`) for live predictive inference.*
 - [ ] **Python FastAPI Inference Bridge**:
   - Microservice loading `btc_lstm_v5_2_1.keras` and `btc_astronacci_model.keras` binaries from `models/`.
