@@ -17,10 +17,19 @@ import {
   Radio, 
   Layers, 
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Database
 } from 'lucide-react';
 import { CandleData } from '../types';
 import { SUPPORTED_SYMBOLS } from '../services/cryptoApi';
+import {
+  fetchCloudPaperSummary,
+  submitCloudPaperOrder,
+  closeCloudPaperPosition,
+  cancelCloudPaperOrder,
+  resetCloudPaperAccount,
+  fetchCloudAlertRules
+} from '../services/paperTradingApi';
 import {
   PaperTradingState,
   PaperOrderSide,
@@ -90,6 +99,62 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
   const [alertHistory, setAlertHistory] = useState<AlertEvent[]>(() => loadAlertHistory());
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState<boolean>(false);
   const [testAlertStatus, setTestAlertStatus] = useState<string | null>(null);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
+
+  // Initial Sync from MongoDB Atlas Cloud
+  useEffect(() => {
+    fetchCloudPaperSummary().then((res) => {
+      if (res && res.success && res.data) {
+        setIsCloudConnected(true);
+        if (res.data.positions && res.data.positions.length > 0) {
+          setTradingState((prev) => ({
+            ...prev,
+            balance: res.data!.account.balance,
+            equity: res.data!.account.equity,
+            totalFeesPaid: res.data!.account.totalFeesPaid,
+            totalRealizedPnl: res.data!.account.totalRealizedPnl,
+            positions: res.data!.positions.map((p: any) => ({
+              id: p.positionId || p._id,
+              symbol: p.symbol,
+              side: p.side,
+              entryPrice: p.entryPrice,
+              markPrice: p.markPrice,
+              quantity: p.quantity,
+              notionalValue: p.notionalValue,
+              leverage: p.leverage,
+              initialMargin: p.initialMargin,
+              maintenanceMargin: p.maintenanceMargin,
+              unrealizedPnl: p.unrealizedPnl || 0,
+              unrealizedPnlPct: p.unrealizedPnlPct || 0,
+              liquidationPrice: p.liquidationPrice,
+              stopLoss: p.stopLoss,
+              takeProfit: p.takeProfit,
+              trailingStopDistance: p.trailingStopDistance,
+              totalFundingPaid: p.totalFundingPaid || 0,
+              openTimestamp: p.openTimestamp || Date.now()
+            }))
+          }));
+        }
+      }
+    });
+
+    fetchCloudAlertRules().then((rules) => {
+      if (rules && rules.length > 0) {
+        setAlertRules(rules.map((r: any) => ({
+          id: r.ruleId || r._id,
+          name: r.name,
+          type: r.type,
+          symbol: r.symbol,
+          enabled: r.enabled,
+          channels: r.channels,
+          threshold: r.threshold,
+          direction: r.direction,
+          cooldownMinutes: r.cooldownMinutes,
+          lastTriggeredTimestamp: r.lastTriggeredTimestamp
+        })));
+      }
+    });
+  }, []);
 
   // Sync selected symbol
   useEffect(() => {
@@ -230,6 +295,20 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
     setTradingState(newState);
     setOrderSuccess(`Order submitted successfully! ID: ${order.id.slice(0, 8)} (${order.type} ${order.positionSide})`);
     
+    // Sync with MongoDB Atlas Cloud
+    submitCloudPaperOrder({
+      symbol: targetSymbol,
+      side: orderSide === 'LONG' ? 'BUY' : 'SELL',
+      type: orderType,
+      positionSide: orderSide,
+      quantity: assetQuantity,
+      price: currentFillPrice,
+      leverage,
+      stopLoss: stopLossPrice ? parseFloat(stopLossPrice) : undefined,
+      takeProfit: takeProfitPrice ? parseFloat(takeProfitPrice) : undefined,
+      trailingStopDistance: trailingStopDist ? parseFloat(trailingStopDist) : undefined
+    }, currentPrice).catch((e) => console.debug('Cloud order sync skipped:', e));
+
     // Clear alerts after 4s
     setTimeout(() => setOrderSuccess(null), 4000);
   };
@@ -237,17 +316,20 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
   const handleClosePosition = (posId: string) => {
     const updated = closePosition(tradingState, posId, currentPrice, 'MANUAL_CLOSE');
     setTradingState(updated);
+    closeCloudPaperPosition(posId, currentPrice).catch((e) => console.debug('Cloud close sync skipped:', e));
   };
 
   const handleCancelOrder = (ordId: string) => {
     const updated = cancelPaperOrder(tradingState, ordId);
     setTradingState(updated);
+    cancelCloudPaperOrder(ordId).catch((e) => console.debug('Cloud cancel sync skipped:', e));
   };
 
   const handleResetWallet = () => {
     if (window.confirm('Reset Paper Trading account back to initial $10,000 USDT balance? All active positions and history will be cleared.')) {
       const fresh = resetPaperTradingState(10000);
       setTradingState(fresh);
+      resetCloudPaperAccount().catch((e) => console.debug('Cloud reset sync skipped:', e));
     }
   };
 
@@ -312,10 +394,18 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-bold tracking-tight text-white">Paper Trading &amp; Alert Engine</h2>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  v6.1.0 Live Simulator
+                  v6.2.0 Live Simulator
+                </span>
+                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                  isCloudConnected
+                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                    : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30'
+                }`}>
+                  <Database className="w-3 h-3" />
+                  {isCloudConnected ? 'MongoDB Cloud Active' : 'Dual-Mode (Cloud + Local)'}
                 </span>
               </div>
               <p className="text-xs text-slate-400">
