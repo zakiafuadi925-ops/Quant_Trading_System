@@ -1,18 +1,20 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { SimulationSummary } from '../types';
-import { runMonteCarloSimulation, MonteCarloParams, MonteCarloResult } from '../workers/monteCarloCore';
+import { runMonteCarloSimulation, MonteCarloResult } from '../workers/monteCarloCore';
+import { runTradeBootstrap, BootstrapResult, BootstrapTradeInput } from '../utils/tradeBootstrap';
 import { 
   Activity, 
-  Play, 
   RotateCw, 
   ShieldAlert, 
   TrendingUp, 
   TrendingDown, 
-  Info, 
-  Sliders, 
-  Target,
-  BarChart3,
-  Cpu
+  BarChart3, 
+  Cpu,
+  Layers,
+  Flame,
+  AlertTriangle,
+  Award,
+  Sliders,
+  DollarSign
 } from 'lucide-react';
 
 interface MonteCarloTabProps {
@@ -20,17 +22,26 @@ interface MonteCarloTabProps {
 }
 
 export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice }) => {
+  // Engine Mode Switch: GBM Price Paths vs Historical Trade Bootstrap
+  const [engineMode, setEngineMode] = useState<'GBM_PRICE' | 'TRADE_BOOTSTRAP'>('GBM_PRICE');
+
+  // --- Mode 1: GBM Price Simulation State ---
   const [horizonDays, setHorizonDays] = useState<number>(28);
   const [nPaths, setNPaths] = useState<number>(2000);
-  const [dailyDriftPct, setDailyDriftPct] = useState<number>(0.461); // 0.004609
-  const [dailyVolPct, setDailyVolPct] = useState<number>(2.182); // 0.021816
+  const [dailyDriftPct, setDailyDriftPct] = useState<number>(0.461);
+  const [dailyVolPct, setDailyVolPct] = useState<number>(2.182);
   const [seedVersion, setSeedVersion] = useState<number>(1);
-
-  // Background computation state via native Web Worker
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isWorkerActive, setIsWorkerActive] = useState<boolean>(true);
 
-  // Initialize simulation with synchronous default
+  // --- Mode 2: Trade Bootstrap State ---
+  const [bootstrapIterations, setBootstrapIterations] = useState<number>(5000);
+  const [ruinThresholdPct, setRuinThresholdPct] = useState<number>(50);
+  const [tradeHorizon, setTradeHorizon] = useState<number>(50);
+  const [bootstrapCapital, setBootstrapCapital] = useState<number>(10000);
+  const [bootstrapSeed, setBootstrapSeed] = useState<number>(1);
+
+  // Initialize GBM simulation
   const [simulation, setSimulation] = useState<MonteCarloResult>(() =>
     runMonteCarloSimulation({
       currentBtcPrice,
@@ -42,10 +53,40 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
     })
   );
 
+  // Baseline representative trade distribution for bootstrap
+  const baselineTrades: BootstrapTradeInput[] = useMemo(() => [
+    { pnl: 420, pnlPct: 4.2 },
+    { pnl: -180, pnlPct: -1.8 },
+    { pnl: 650, pnlPct: 6.5 },
+    { pnl: -240, pnlPct: -2.4 },
+    { pnl: 310, pnlPct: 3.1 },
+    { pnl: -120, pnlPct: -1.2 },
+    { pnl: 520, pnlPct: 5.2 },
+    { pnl: -350, pnlPct: -3.5 },
+    { pnl: 280, pnlPct: 2.8 },
+    { pnl: -160, pnlPct: -1.6 },
+    { pnl: 710, pnlPct: 7.1 },
+    { pnl: -290, pnlPct: -2.9 },
+    { pnl: 190, pnlPct: 1.9 },
+    { pnl: -90, pnlPct: -0.9 },
+    { pnl: 480, pnlPct: 4.8 }
+  ], []);
+
+  // Compute Trade Bootstrap Result
+  const bootstrapResult: BootstrapResult = useMemo(() => {
+    return runTradeBootstrap(baselineTrades, {
+      initialCapital: bootstrapCapital,
+      iterations: bootstrapIterations,
+      ruinThresholdPct,
+      tradeHorizon,
+      sampleCurveCount: 25
+    });
+  }, [baselineTrades, bootstrapCapital, bootstrapIterations, ruinThresholdPct, tradeHorizon, bootstrapSeed]);
+
   const workerRef = useRef<Worker | null>(null);
   const activeRequestId = useRef<number>(0);
 
-  // Modern Web Guidance: Initialize Dedicated Web Worker to offload heavy stochastic paths
+  // Dedicated Web Worker setup for GBM
   useEffect(() => {
     try {
       if (typeof Worker !== 'undefined') {
@@ -81,9 +122,13 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
     }
   }, []);
 
-  // Post simulation job to background worker whenever parameters change
+  // Trigger GBM Simulation Run
   useEffect(() => {
-    const params: MonteCarloParams = {
+    activeRequestId.current += 1;
+    const reqId = activeRequestId.current;
+    setIsSimulating(true);
+
+    const params = {
       currentBtcPrice,
       horizonDays,
       nPaths,
@@ -93,20 +138,19 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
     };
 
     if (workerRef.current && isWorkerActive) {
-      setIsSimulating(true);
-      const reqId = ++activeRequestId.current;
       workerRef.current.postMessage({ id: reqId, params });
     } else {
-      // Synchronous fallback for headless test runners / environments without Web Worker
-      const result = runMonteCarloSimulation(params);
-      setSimulation(result);
-      setIsSimulating(false);
+      setTimeout(() => {
+        const res = runMonteCarloSimulation(params);
+        setSimulation(res);
+        setIsSimulating(false);
+      }, 0);
     }
   }, [currentBtcPrice, horizonDays, nPaths, dailyDriftPct, dailyVolPct, seedVersion, isWorkerActive]);
 
-  // Chart coordinate mapping
-  const chartWidth = 900;
+  // SVG Chart Scales for GBM
   const chartHeight = 320;
+  const chartWidth = 900;
   const padding = { top: 25, right: 30, bottom: 35, left: 70 };
 
   const { minChartPrice, maxChartPrice } = useMemo(() => {
@@ -121,7 +165,6 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
   const scaleX = (day: number) => padding.left + (day / horizonDays) * (chartWidth - padding.left - padding.right);
   const scaleY = (price: number) => chartHeight - padding.bottom - ((price - minChartPrice) / (maxChartPrice - minChartPrice || 1)) * (chartHeight - padding.top - padding.bottom);
 
-  // SVG Fan Area: 5th to 95th percentile
   const area95Path = useMemo(() => {
     const pts = simulation.percentileCurve;
     const top = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(pt.day)},${scaleY(pt.p95)}`).join(' ');
@@ -129,7 +172,6 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
     return `${top} ${btm} Z`;
   }, [simulation.percentileCurve, minChartPrice, maxChartPrice, horizonDays]);
 
-  // SVG Fan Area: 25th to 75th percentile
   const area50Path = useMemo(() => {
     const pts = simulation.percentileCurve;
     const top = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(pt.day)},${scaleY(pt.p75)}`).join(' ');
@@ -137,317 +179,560 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
     return `${top} ${btm} Z`;
   }, [simulation.percentileCurve, minChartPrice, maxChartPrice, horizonDays]);
 
-  // Median Path
   const medianPath = useMemo(() => {
     return simulation.percentileCurve.map((pt, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(pt.day)},${scaleY(pt.p50)}`).join(' ');
   }, [simulation.percentileCurve, minChartPrice, maxChartPrice, horizonDays]);
 
+  // Bootstrap Chart Coordinates
+  const { minBootstrapEq, maxBootstrapEq } = useMemo(() => {
+    let min = bootstrapResult.worstCaseFinalEquity;
+    let max = bootstrapResult.bestCaseFinalEquity;
+    bootstrapResult.sampleCurves.forEach((c) => {
+      c.forEach((v) => {
+        if (v < min) min = v;
+        if (v > max) max = v;
+      });
+    });
+    return {
+      minBootstrapEq: Math.max(0, min * 0.9),
+      maxBootstrapEq: max * 1.1
+    };
+  }, [bootstrapResult]);
+
+  const scaleBsX = (step: number) => padding.left + (step / tradeHorizon) * (chartWidth - padding.left - padding.right);
+  const scaleBsY = (eq: number) => chartHeight - padding.bottom - ((eq - minBootstrapEq) / (maxBootstrapEq - minBootstrapEq || 1)) * (chartHeight - padding.top - padding.bottom);
+
   return (
-    <div className="space-y-6">
-      {/* Simulation Controls Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-                <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                Stochastic GBM Projection Engine
-              </div>
-              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border transition-all ${
-                isSimulating
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
-                  : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
-              }`}>
-                <Cpu className={`w-3.5 h-3.5 ${isSimulating ? 'animate-spin text-amber-400' : 'text-indigo-400'}`} />
-                {isSimulating ? 'Worker Computing...' : isWorkerActive ? 'Web Worker Thread (Off-UI)' : 'Main Thread Fallback'}
-              </div>
-            </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              Monte Carlo Multi-Path Price Simulation
-            </h2>
-            <p className="text-xs text-slate-400">
-              Geometric Brownian Motion with historical drift (μ) and volatility (σ) derived from 60-day window
-            </p>
-          </div>
+    <div className="space-y-6 animate-fade-in text-slate-100">
+      {/* Top Engine Navigation Tabs */}
+      <div className="flex items-center justify-between p-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+        <div className="flex items-center gap-1.5 p-1 w-full sm:w-auto">
+          <button
+            onClick={() => setEngineMode('GBM_PRICE')}
+            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 ${
+              engineMode === 'GBM_PRICE'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Activity className="w-4 h-4 text-emerald-300" />
+            GBM Price Path Simulator
+          </button>
 
           <button
-            onClick={() => setSeedVersion((prev) => prev + 1)}
-            disabled={isSimulating}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50"
+            onClick={() => setEngineMode('TRADE_BOOTSTRAP')}
+            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center justify-center gap-2 ${
+              engineMode === 'TRADE_BOOTSTRAP'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <RotateCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : 'animate-spin-hover'}`} />
-            Re-run Simulation ({nPaths.toLocaleString()} Paths)
+            <Flame className="w-4 h-4 text-amber-300" />
+            Historical Trade Bootstrap (5,000 Runs)
           </button>
         </div>
 
-        {/* Parameter Sliders */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 text-xs font-mono">
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-slate-400">Horizon:</span>
-              <span className="text-emerald-400 font-bold">{horizonDays} Days</span>
-            </div>
-            <div className="flex gap-1.5">
-              {[7, 14, 28, 60].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setHorizonDays(d)}
-                  className={`flex-1 py-1 rounded text-[11px] font-bold ${
-                    horizonDays === d
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {d}d
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-slate-400">Sample Paths:</span>
-              <span className="text-cyan-400 font-bold">{nPaths.toLocaleString()}</span>
-            </div>
-            <div className="flex gap-1.5">
-              {[1000, 2000, 5000, 10000].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setNPaths(n)}
-                  className={`flex-1 py-1 rounded text-[11px] font-bold ${
-                    nPaths === n
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {n >= 1000 ? `${n / 1000}k` : n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-slate-400">Daily Drift (μ):</span>
-              <span className="text-amber-400 font-bold">+{dailyDriftPct.toFixed(3)}%/day</span>
-            </div>
-            <input
-              type="range"
-              min="0.0"
-              max="1.2"
-              step="0.05"
-              value={dailyDriftPct}
-              onChange={(e) => setDailyDriftPct(Number(e.target.value))}
-              className="w-full accent-amber-500 cursor-pointer"
-            />
-            <span className="text-[10px] text-slate-500">Ann. drift: +{simulation.annualizedDrift.toFixed(1)}%</span>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-slate-400">Daily Volatility (σ):</span>
-              <span className="text-purple-400 font-bold">{dailyVolPct.toFixed(3)}%/day</span>
-            </div>
-            <input
-              type="range"
-              min="1.0"
-              max="5.0"
-              step="0.1"
-              value={dailyVolPct}
-              onChange={(e) => setDailyVolPct(Number(e.target.value))}
-              className="w-full accent-purple-500 cursor-pointer"
-            />
-            <span className="text-[10px] text-slate-500">Ann. vol: {simulation.annualizedVol.toFixed(1)}%</span>
-          </div>
-        </div>
-
-        {/* Quant Metric Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 border-t border-slate-800/80">
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block">Terminal Median</span>
-            <span className="text-base font-bold font-mono text-emerald-400 mt-0.5 block">
-              ${simulation.terminalMedian.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            </span>
-            <span className="text-[10px] text-slate-400">Mean: ${simulation.terminalMean.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block">95th Percentile Bull</span>
-            <span className="text-base font-bold font-mono text-cyan-400 mt-0.5 block">
-              ${simulation.percentileCurve[horizonDays]?.p95.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            </span>
-            <span className="text-[10px] text-slate-400">Upper confidence bound</span>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block">5th Percentile Bear</span>
-            <span className="text-base font-bold font-mono text-rose-400 mt-0.5 block">
-              ${simulation.percentileCurve[horizonDays]?.p5.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            </span>
-            <span className="text-[10px] text-slate-400">Lower confidence bound</span>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block">Loss Probability</span>
-            <span className="text-base font-bold font-mono text-amber-400 mt-0.5 block">
-              {simulation.probLoss.toFixed(1)}%
-            </span>
-            <span className="text-[10px] text-slate-400">P(P_T &lt; P_0)</span>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block">P(&gt;20% Gain)</span>
-            <span className="text-base font-bold font-mono text-emerald-400 mt-0.5 block">
-              {simulation.probGain20.toFixed(1)}%
-            </span>
-            <span className="text-[10px] text-slate-400">P(P_T &gt;= 1.2 * P_0)</span>
-          </div>
-
-          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
-            <span className="text-[11px] text-slate-400 block">Value at Risk (95%)</span>
-            <span className="text-base font-bold font-mono text-rose-300 mt-0.5 block">
-              -{simulation.var95Pct.toFixed(1)}%
-            </span>
-            <span className="text-[10px] text-slate-400">CVaR: -{simulation.cvar95Pct.toFixed(1)}%</span>
-          </div>
+        <div className="hidden lg:flex items-center gap-2 px-4 text-xs font-mono text-slate-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>v6.2.0 Institutional Engine</span>
         </div>
       </div>
 
-      {/* Fan Chart Projection Canvas */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-emerald-400" />
-              Monte Carlo Confidence Fan Chart ({horizonDays}-Day Outlook)
-            </h3>
-            <p className="text-xs text-slate-400">
-              Starting from ${simulation.s0.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} with 5th, 25th, 50th, 75th, and 95th percentiles
-            </p>
+      {/* ========================================================================= */}
+      {/* MODE 1: STOCHASTIC GBM PRICE SIMULATION                                   */}
+      {/* ========================================================================= */}
+      {engineMode === 'GBM_PRICE' && (
+        <>
+          {/* Controls Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                    <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                    Stochastic GBM Projection Engine
+                  </div>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border transition-all ${
+                    isSimulating
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
+                      : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'
+                  }`}>
+                    <Cpu className={`w-3.5 h-3.5 ${isSimulating ? 'animate-spin text-amber-400' : 'text-indigo-400'}`} />
+                    {isSimulating ? 'Worker Computing...' : isWorkerActive ? 'Web Worker Thread (Off-UI)' : 'Main Thread Fallback'}
+                  </div>
+                </div>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  Monte Carlo Multi-Path Price Simulation
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Geometric Brownian Motion with historical drift (μ) and volatility (σ) derived from 60-day window
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSeedVersion((prev) => prev + 1)}
+                disabled={isSimulating}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50"
+              >
+                <RotateCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : ''}`} />
+                Re-run Simulation ({nPaths.toLocaleString()} Paths)
+              </button>
+            </div>
+
+            {/* Parameter Sliders */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 text-xs font-mono">
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Horizon:</span>
+                  <span className="text-emerald-400 font-bold">{horizonDays} Days</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[7, 14, 28, 60].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setHorizonDays(d)}
+                      className={`flex-1 py-1 rounded text-[11px] font-bold ${
+                        horizonDays === d ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Sample Paths:</span>
+                  <span className="text-cyan-400 font-bold">{nPaths.toLocaleString()}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[1000, 2000, 5000, 10000].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setNPaths(n)}
+                      className={`flex-1 py-1 rounded text-[11px] font-bold ${
+                        nPaths === n ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {n >= 1000 ? `${n / 1000}k` : n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Daily Drift (μ):</span>
+                  <span className="text-amber-400 font-bold">{(dailyDriftPct).toFixed(3)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="-0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={dailyDriftPct}
+                  onChange={(e) => setDailyDriftPct(parseFloat(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Daily Volatility (σ):</span>
+                  <span className="text-rose-400 font-bold">{(dailyVolPct).toFixed(2)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="6.0"
+                  step="0.1"
+                  value={dailyVolPct}
+                  onChange={(e) => setDailyVolPct(parseFloat(e.target.value))}
+                  className="w-full accent-rose-500 cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-2 bg-emerald-500/20 border border-emerald-500/40 rounded inline-block" />
-              <span className="text-slate-300">5% - 95% Interval</span>
+          {/* KPI Outcome Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Median Target</span>
+              <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                ${simulation.terminalMedian.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                50th Percentile
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-2 bg-emerald-500/40 border border-emerald-500/60 rounded inline-block" />
-              <span className="text-slate-300">25% - 75% Interquartile</span>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Expected Shortfall (CVaR)</span>
+              <div className="text-xl font-bold font-mono text-rose-400 mt-1">
+                -{simulation.cvar95Pct.toFixed(1)}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                VaR 95%: -{simulation.var95Pct.toFixed(1)}%
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 bg-emerald-400 inline-block" />
-              <span className="text-emerald-300 font-bold">Median Path</span>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Prob of Loss</span>
+              <div className={`text-xl font-bold font-mono mt-1 ${simulation.probLoss < 40 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {simulation.probLoss.toFixed(1)}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                P(ST &lt; S0)
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Prob &gt; +20%</span>
+              <div className="text-xl font-bold font-mono text-cyan-400 mt-1">
+                {simulation.probGain20.toFixed(1)}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                Bullish Expansion
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Annualized Drift</span>
+              <div className="text-xl font-bold font-mono text-amber-400 mt-1">
+                +{simulation.annualizedDrift.toFixed(1)}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                Compound Drift
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Annualized Vol</span>
+              <div className="text-xl font-bold font-mono text-indigo-400 mt-1">
+                {simulation.annualizedVol.toFixed(1)}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                σ * sqrt(365)
+              </span>
             </div>
           </div>
-        </div>
 
-        {/* SVG Projection Fan */}
-        <div className="w-full overflow-x-auto py-2">
-          <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto min-w-[700px]">
-            {/* Grid Lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-              const yVal = minChartPrice + pct * (maxChartPrice - minChartPrice);
-              const yPos = scaleY(yVal);
-              return (
-                <g key={pct}>
+          {/* SVG Price Fan Chart */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
+                GBM Quantile Fan Chart ({horizonDays} Days Ahead)
+              </h3>
+              <div className="flex items-center gap-4 text-xs font-mono">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <span className="w-3 h-1 bg-emerald-500 rounded" /> Median Path
+                </span>
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <span className="w-3 h-3 bg-emerald-500/20 border border-emerald-500/40 rounded-sm" /> 5th-95th Percentile
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
+                <path d={area95Path} fill="#10b981" fillOpacity="0.12" stroke="#10b981" strokeOpacity="0.3" strokeWidth="1" />
+                <path d={area50Path} fill="#10b981" fillOpacity="0.25" stroke="#10b981" strokeOpacity="0.5" strokeWidth="1" />
+                {simulation.samplePaths.map((path, idx) => {
+                  const dStr = path.map((p, d) => `${d === 0 ? 'M' : 'L'} ${scaleX(d)},${scaleY(p)}`).join(' ');
+                  return <path key={idx} d={dStr} fill="none" stroke="#38bdf8" strokeWidth="0.75" opacity="0.18" />;
+                })}
+                <path d={medianPath} fill="none" stroke="#10b981" strokeWidth="2.5" />
+                <line x1={padding.left} y1={scaleY(simulation.s0)} x2={chartWidth - padding.right} y2={scaleY(simulation.s0)} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth="1.5" opacity="0.8" />
+              </svg>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODE 2: HISTORICAL TRADE BOOTSTRAP (5,000 RUNS)                           */}
+      {/* ========================================================================= */}
+      {engineMode === 'TRADE_BOOTSTRAP' && (
+        <>
+          {/* Controls Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+                    <Flame className="w-3.5 h-3.5 text-amber-400" />
+                    Monte Carlo Trade Sequence Bootstrap Engine
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                    5,000 Stochastic Iterations
+                  </span>
+                </div>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  Probability of Ruin &amp; Drawdown Distribution Bootstrap
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Reshuffles trade sequences with replacement across 5,000 paths to evaluate sequence risk and tail liabilities
+                </p>
+              </div>
+
+              <button
+                onClick={() => setBootstrapSeed((prev) => prev + 1)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs shadow-lg shadow-amber-600/25 transition-all"
+              >
+                <RotateCw className="w-4 h-4" />
+                Re-run Bootstrap (5,000 Runs)
+              </button>
+            </div>
+
+            {/* Bootstrap Parameter Sliders */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 text-xs font-mono">
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Iterations:</span>
+                  <span className="text-amber-400 font-bold">{bootstrapIterations.toLocaleString()}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[2000, 5000, 10000].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setBootstrapIterations(n)}
+                      className={`flex-1 py-1 rounded text-[11px] font-bold ${
+                        bootstrapIterations === n ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {n / 1000}k
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Ruin Threshold (% Drop):</span>
+                  <span className="text-rose-400 font-bold">-{ruinThresholdPct}%</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[30, 50, 70].map((pct) => (
+                    <button
+                      key={pct}
+                      onClick={() => setRuinThresholdPct(pct)}
+                      className={`flex-1 py-1 rounded text-[11px] font-bold ${
+                        ruinThresholdPct === pct ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      -{pct}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Sequence Horizon:</span>
+                  <span className="text-cyan-400 font-bold">{tradeHorizon} Trades</span>
+                </div>
+                <input
+                  type="range"
+                  min="20"
+                  max="100"
+                  step="5"
+                  value={tradeHorizon}
+                  onChange={(e) => setTradeHorizon(parseInt(e.target.value))}
+                  className="w-full accent-cyan-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-slate-400">Initial Account Capital:</span>
+                  <span className="text-emerald-400 font-bold">${bootstrapCapital.toLocaleString()}</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[1000, 10000, 50000].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setBootstrapCapital(c)}
+                      className={`flex-1 py-1 rounded text-[11px] font-bold ${
+                        bootstrapCapital === c ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      ${c >= 1000 ? `${c / 1000}k` : c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bootstrap Key Risk Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Probability of Ruin</span>
+              <div className={`text-xl font-bold font-mono mt-1 ${
+                bootstrapResult.ruinProbabilityPct === 0 
+                  ? 'text-emerald-400' 
+                  : bootstrapResult.ruinProbabilityPct < 5 
+                  ? 'text-amber-400' 
+                  : 'text-rose-400'
+              }`}>
+                {bootstrapResult.ruinProbabilityPct === 0 ? '< 0.02%' : `${bootstrapResult.ruinProbabilityPct}%`}
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {bootstrapResult.ruinCount} / {bootstrapResult.iterations} paths ruined
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Median Max Drawdown</span>
+              <div className="text-xl font-bold font-mono text-slate-200 mt-1">
+                {bootstrapResult.medianMaxDrawdown}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                Typical drawdowns
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">95th Percentile DD</span>
+              <div className="text-xl font-bold font-mono text-amber-400 mt-1">
+                {bootstrapResult.p95MaxDrawdown}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                99th %tile: {bootstrapResult.p99MaxDrawdown}%
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Worst-Case Drawdown</span>
+              <div className="text-xl font-bold font-mono text-rose-400 mt-1">
+                {bootstrapResult.worstCaseDrawdown}%
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                Tail tail tail loss
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Median Final Capital</span>
+              <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                ${bootstrapResult.medianFinalEquity.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                p5: ${bootstrapResult.p5FinalEquity.toFixed(0)}
+              </span>
+            </div>
+
+            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <span className="text-[11px] font-medium text-slate-400 block uppercase">Max Loss Streak</span>
+              <div className="text-xl font-bold font-mono text-indigo-400 mt-1">
+                {bootstrapResult.maxConsecutiveLosses} Trades
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                p95: {bootstrapResult.p95ConsecutiveLosses} consecutive
+              </span>
+            </div>
+          </div>
+
+          {/* SVG Fan Chart & Drawdown Histogram */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: 25 Bootstrap Sample Curves (8 cols) */}
+            <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-amber-400" />
+                  Bootstrap Equity Fan ({bootstrapResult.sampleCurves.length} Sample Runs)
+                </h3>
+                <span className="text-xs font-mono text-slate-400">
+                  Horizon: {tradeHorizon} Trades Ahead
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
+                  {/* Sample Curves */}
+                  {bootstrapResult.sampleCurves.map((curve, idx) => {
+                    const dStr = curve.map((val, step) => `${step === 0 ? 'M' : 'L'} ${scaleBsX(step)},${scaleBsY(val)}`).join(' ');
+                    return (
+                      <path
+                        key={idx}
+                        d={dStr}
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth="1.2"
+                        opacity="0.35"
+                      />
+                    );
+                  })}
+
+                  {/* Initial Capital Line */}
                   <line
                     x1={padding.left}
-                    y1={yPos}
+                    y1={scaleBsY(bootstrapCapital)}
                     x2={chartWidth - padding.right}
-                    y2={yPos}
-                    stroke="#1e293b"
+                    y2={scaleBsY(bootstrapCapital)}
+                    stroke="#10b981"
                     strokeDasharray="4 4"
+                    strokeWidth="1.5"
                   />
                   <text
-                    x={padding.left - 8}
-                    y={yPos + 4}
+                    x={chartWidth - padding.right}
+                    y={scaleBsY(bootstrapCapital) - 6}
                     textAnchor="end"
-                    fill="#64748b"
+                    fill="#10b981"
                     fontSize="10"
                     fontFamily="monospace"
                   >
-                    ${Math.round(yVal).toLocaleString()}
+                    Capital Anchor: ${bootstrapCapital.toLocaleString()}
                   </text>
-                </g>
-              );
-            })}
+                </svg>
+              </div>
+            </div>
 
-            {/* 5-95 Percentile Shaded Fan */}
-            <path
-              d={area95Path}
-              fill="#10b981"
-              fillOpacity="0.12"
-              stroke="#10b981"
-              strokeOpacity="0.3"
-              strokeWidth="1"
-            />
+            {/* Right: Drawdown Histogram Distribution (4 cols) */}
+            <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+              <div className="border-b border-slate-800/80 pb-3">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  Drawdown Frequency Matrix
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Probability mass distribution across {bootstrapIterations.toLocaleString()} iterations
+                </p>
+              </div>
 
-            {/* 25-75 Percentile Shaded Fan */}
-            <path
-              d={area50Path}
-              fill="#10b981"
-              fillOpacity="0.25"
-              stroke="#10b981"
-              strokeOpacity="0.5"
-              strokeWidth="1"
-            />
-
-            {/* Individual Sample Paths */}
-            {simulation.samplePaths.map((path, idx) => {
-              const dStr = path
-                .map((p, d) => `${d === 0 ? 'M' : 'L'} ${scaleX(d)},${scaleY(p)}`)
-                .join(' ');
-              return (
-                <path
-                  key={idx}
-                  d={dStr}
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="0.75"
-                  opacity="0.18"
-                />
-              );
-            })}
-
-            {/* Median Line */}
-            <path
-              d={medianPath}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="2.5"
-            />
-
-            {/* Starting Price Benchmark Line */}
-            <line
-              x1={padding.left}
-              y1={scaleY(simulation.s0)}
-              x2={chartWidth - padding.right}
-              y2={scaleY(simulation.s0)}
-              stroke="#f59e0b"
-              strokeDasharray="3 3"
-              strokeWidth="1.5"
-              opacity="0.8"
-            />
-            <text
-              x={chartWidth - padding.right}
-              y={scaleY(simulation.s0) - 6}
-              textAnchor="end"
-              fill="#f59e0b"
-              fontSize="10"
-              fontFamily="monospace"
-            >
-              Anchor: ${simulation.s0.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </text>
-          </svg>
-        </div>
-
-        <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-800/60">
-          <span>Day 0 (Current)</span>
-          <span>Forward Horizon: {horizonDays} trading days</span>
-          <span>Day {horizonDays} Terminal</span>
-        </div>
-      </div>
+              <div className="space-y-3 font-mono text-xs">
+                {bootstrapResult.drawdownBuckets.map((bucket) => {
+                  const isSevere = bucket.range.includes('50%');
+                  return (
+                    <div key={bucket.range} className="space-y-1">
+                      <div className="flex justify-between text-slate-300 text-[11px]">
+                        <span>{bucket.range}</span>
+                        <span className={isSevere && bucket.count > 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                          {bucket.pct}% ({bucket.count})
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isSevere 
+                              ? 'bg-rose-500' 
+                              : bucket.range.includes('30%') || bucket.range.includes('40%')
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, bucket.pct * 1.5)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -4,6 +4,8 @@ import { getSignal, StrategyParams, StrategyModel } from '../utils/strategy';
 import { calculateIndicators } from '../utils/technicalIndicators';
 import { CandlestickChart } from './CandlestickChart';
 import { WalkForwardModal } from './WalkForwardModal';
+import { FactSheetModal } from './FactSheetModal';
+import { calculateInstitutionalMetrics, calculateMonthlyReturns, FactSheetData } from '../utils/factSheet';
 
 import { 
   Play, 
@@ -22,7 +24,8 @@ import {
   BrainCircuit,
   Activity,
   Layers,
-  ShieldAlert
+  ShieldAlert,
+  FileText
 } from 'lucide-react';
 
 interface BacktestTabProps {
@@ -54,6 +57,7 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
   const [takeProfitPct, setTakeProfitPct] = useState<number>(0); // 0 = disabled
   const [filterTradeType, setFilterTradeType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
   const [isWalkForwardOpen, setIsWalkForwardOpen] = useState<boolean>(false);
+  const [isFactSheetOpen, setIsFactSheetOpen] = useState<boolean>(false);
 
   const handleApplyOptimizedParams = (params: StrategyParams & { stopLossPct?: number; takeProfitPct?: number }) => {
     if (params.threshold !== undefined) setThreshold(params.threshold);
@@ -250,6 +254,42 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
     document.body.removeChild(link);
   };
 
+  // Compile Institutional Fact Sheet Data
+  const factSheetData: FactSheetData = useMemo(() => {
+    const curvePoints = backtestResults.curve.map((c) => ({
+      date: c.date,
+      equity: c.strategyEquity
+    }));
+
+    const fsTrades = backtestResults.trades.map((t) => ({
+      id: t.id,
+      date: t.date,
+      type: t.type,
+      price: t.price,
+      units: t.units,
+      pnl: t.pnl,
+      pnlPct: t.pnlPct,
+      balanceAfter: t.balanceAfter
+    }));
+
+    const metrics = calculateInstitutionalMetrics(curvePoints, fsTrades, initialCapital);
+    const monthlyReturns = calculateMonthlyReturns(curvePoints);
+    const startDate = processedCandles[0]?.timestamp || 'N/A';
+    const endDate = processedCandles[processedCandles.length - 1]?.timestamp || 'N/A';
+
+    return {
+      symbol,
+      strategyName: strategyModel.toUpperCase(),
+      timeframe,
+      startDate,
+      endDate,
+      totalBars: processedCandles.length,
+      metrics,
+      monthlyReturns,
+      trades: fsTrades
+    };
+  }, [backtestResults, symbol, strategyModel, timeframe, processedCandles, initialCapital]);
+
   const filteredTrades = useMemo(() => {
     if (filterTradeType === 'ALL') return backtestResults.trades;
     return backtestResults.trades.filter((t) => t.type === filterTradeType);
@@ -307,6 +347,15 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setIsFactSheetOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-mono text-xs font-bold transition-all shadow-md shadow-amber-600/20"
+              title="Open hedge-fund tier Institutional Fact Sheet with Monthly Return Matrix and PDF export"
+            >
+              <FileText className="w-3.5 h-3.5 text-amber-200" />
+              Institutional Fact Sheet
+            </button>
+
             <button
               onClick={() => setIsWalkForwardOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-mono text-xs font-bold transition-all shadow-md shadow-cyan-600/20"
@@ -755,6 +804,13 @@ export const BacktestTab: React.FC<BacktestTabProps> = ({
         candles={processedCandles}
         strategyModel={strategyModel}
         onApplyParams={handleApplyOptimizedParams}
+      />
+
+      {/* Institutional Fact Sheet & Audit Modal */}
+      <FactSheetModal
+        isOpen={isFactSheetOpen}
+        onClose={() => setIsFactSheetOpen(false)}
+        factSheetData={factSheetData}
       />
     </div>
   );

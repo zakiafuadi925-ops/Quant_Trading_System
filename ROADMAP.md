@@ -117,13 +117,13 @@ flowchart TD
 
 ---
 
-### 🚀 Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`) — *Upcoming*
+### ✅ Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`) — *Completed*
 *Goal: Provide hedge-fund-grade validation, optimization, and reporting tools.*
 - [x] **Walk-Forward Analysis (WFA) & Parameter Sweeper**:
   - In-sample parameter optimization with out-of-sample stress verification, WFE calculation, and overfit risk classification.
-- [ ] **Historical Monte Carlo Trade Bootstrap**:
+- [x] **Historical Monte Carlo Trade Bootstrap**:
   - Reshuffling trade sequences across 5,000 runs to calculate probability of ruin and worst-case drawdown distributions.
-- [ ] **Institutional Fact Sheet (PDF & CSV Export)**:
+- [x] **Institutional Fact Sheet (PDF & CSV Export)**:
   - One-click export of quantitative tear-sheets: monthly return heatmaps, Sharpe/Sortino/Calmar ratios, VaR 95/99%, and full transaction audits.
 
 ---

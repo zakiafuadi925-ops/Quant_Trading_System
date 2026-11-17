@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.2.0] - 2026-11-17
+
+### 🚀 Added
+- **Historical Monte Carlo Trade Bootstrap Engine** ([`src/utils/tradeBootstrap.ts`](src/utils/tradeBootstrap.ts), [`src/components/MonteCarloTab.tsx`](src/components/MonteCarloTab.tsx)):
+  - 5,000-run stochastic bootstrap sampling with replacement across historical trade distributions.
+  - Mathematical quantification of Probability of Ruin under configurable capital loss thresholds (-30%, -50%, -70%).
+  - Detailed Drawdown Percentile distributions (Median, 95th %tile, 99th %tile, and worst-case drawdown).
+  - 6-bin drawdown frequency histogram matrix covering 100% of iteration mass.
+  - Longest consecutive loss streak analysis and bootstrap Sharpe confidence intervals.
+  - Interactive dual-mode selector in Monte Carlo Observatory toggling between Stochastic GBM Price Projection and 5,000-Run Trade Sequence Bootstrap.
+- **Institutional Analytics & One-Click Fact Sheet Suite** ([`src/utils/factSheet.ts`](src/utils/factSheet.ts), [`src/components/FactSheetModal.tsx`](src/components/FactSheetModal.tsx), [`src/components/BacktestTab.tsx`](src/components/BacktestTab.tsx)):
+  - Automated Monthly Return Heatmap matrix calculation (Year $\times$ 12 Months + compounded YTD).
+  - Hedge-fund tier ratio calculations: Annualized Sharpe, Downside-only Sortino, Calmar (CAGR / Max DD), Recovery Factor, and Payoff Ratio.
+  - Historical Value at Risk (VaR 95% and VaR 99%) and Conditional VaR / Expected Shortfall (CVaR 95% & CVaR 99%).
+  - One-click CSV Audit export downloading complete executive metrics, monthly heatmap tables, and full transactional ledger.
+  - High-resolution, printable Institutional PDF Fact Sheet generator with print styling and dark/light presentation theme (`openPrintableFactSheet`).
+- **Unit Test Coverage for Institutional Suite** ([`tests/tradeBootstrap.test.ts`](tests/tradeBootstrap.test.ts), [`tests/factSheet.test.ts`](tests/factSheet.test.ts)):
+  - 7 new comprehensive unit tests verifying 5,000-run bootstrap accuracy, ruin calculations, drawdown histogram coverage, monthly return compounding, and CSV report formatting (total test suite elevated to 62 passing tests across 10 suites).
+
+---
+
 ## [6.1.0] - 2026-11-17
 
 ### 🚀 Added

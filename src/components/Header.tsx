@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
                   Quant Trading System
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    v6.1.0
+                    v6.2.0
                   </span>
                 </h1>
               </div>
