@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.1.0] - 2026-11-17
+
+### 🚀 Added
+- **Virtual Paper Trading Wallet & Perpetual Futures Execution Engine** ([`src/utils/paperTrading.ts`](src/utils/paperTrading.ts), [`src/components/PaperTradingTab.tsx`](src/components/PaperTradingTab.tsx)):
+  - In-memory simulated exchange account initialized with default $10,000 USDT balance and localStorage persistence.
+  - Perpetual Futures simulator supporting 1x–10x configurable leverage, initial & maintenance margin modeling, and real-time liquidation price calculation.
+  - Market and Limit order routing with tick-level fill verification against live Binance WebSocket prices.
+  - Dynamic slippage modeling based on order notional size ($2.0\text{--}22.0\text{ bps}$) and maker/taker fee structures.
+  - Automated triggers for Trailing Stop-Loss (USD peak offset), hard Stop-Loss, Take-Profit, and catastrophic Liquidation.
+  - Periodic Perpetual Funding Rate simulation (8-hour interval, 1 bps) adjusting cash balances across open positions.
+  - Immutable Execution Audit Ledger tracking timestamps, executed prices, realized PnL, fees, and trigger reasons.
+- **Alert & Multi-Channel Webhook Notification Engine** ([`src/utils/alertEngine.ts`](src/utils/alertEngine.ts)):
+  - Real-time rule evaluation for high-conviction Ensemble Confluence triggers ($\ge 70$), Supertrend direction flips (Bullish/Bearish), price threshold breakouts, and critical margin call warnings ($< 20\%$).
+  - Instant Telegram Bot API dispatcher with formatted markdown alerts (`formatTelegramMessage`).
+  - Discord Channel Webhook dispatcher with structured embed payloads (`formatDiscordPayload`).
+  - Configurable cooldown windows per rule to prevent notification flooding, accompanied by in-app trigger history logs and interactive test pings.
+- **Paper Trading & Alert Management Console** ([`src/components/PaperTradingTab.tsx`](src/components/PaperTradingTab.tsx)):
+  - Performance HUD displaying real-time Account Equity, Cash Balance, Unrealized PnL, Realized Net PnL, Margin Level, and Win Rate.
+  - Order entry terminal with multi-asset quick switcher (BTC/ETH/SOL/BNB/ADA), leverage slider, quick margin percentage selectors (10%, 25%, 50%, 100%), and pre-flight execution parameter breakdown.
+  - Interactive table of active positions with live mark-to-market PnL and manual market close action.
+  - Webhook & alert rules configuration modal supporting Telegram token/chat ID and Discord webhook URL setup.
+- **Comprehensive Unit Test Suites** ([`tests/paperTrading.test.ts`](tests/paperTrading.test.ts), [`tests/alertEngine.test.ts`](tests/alertEngine.test.ts)):
+  - 20 new unit tests covering wallet initialization, leverage margin, liquidation pricing, market/limit orders, trailing stops, stop losses, liquidations, funding fees, performance statistics, and multi-channel webhook dispatching (bringing total test coverage to 55 passing tests across 8 suites).
+
+---
+
 ## [6.0.0] - 2026-11-16
 
 ### 🚀 Added

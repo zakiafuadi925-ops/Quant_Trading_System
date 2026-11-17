@@ -8,6 +8,7 @@ import { PortfolioTab } from './components/PortfolioTab';
 import { GridTradingTab } from './components/GridTradingTab';
 import { ModulesTab } from './components/ModulesTab';
 import { RiskManagementTab } from './components/RiskManagementTab';
+import { PaperTradingTab } from './components/PaperTradingTab';
 import { LiveFeedModal } from './components/LiveFeedModal';
 import { BTC_CANDLES } from './data/historicalData';
 import { fetchLivePrice, fetchHistoricalCandles, LiveTicker } from './services/cryptoApi';
@@ -198,6 +199,14 @@ export function App() {
             timeframe={timeframe}
             onTimeframeChange={handleTimeframeChange}
             isLoadingCandles={isLoadingCandles}
+            symbol={selectedSymbol}
+            onSymbolChange={handleSymbolChange}
+          />
+        )}
+        {activeTab === 'paper-trading' && (
+          <PaperTradingTab
+            candles={candles}
+            currentPrice={ticker.price}
             symbol={selectedSymbol}
             onSymbolChange={handleSymbolChange}
           />

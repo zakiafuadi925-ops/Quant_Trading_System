@@ -103,21 +103,21 @@ flowchart TD
 
 ---
 
-### 🚀 Phase 4: Paper Trading & Alert Execution Engine (`v6.1.0`) — *Upcoming*
+### ✅ Phase 4: Paper Trading & Alert Execution Engine (`v6.1.0`) — *Completed*
 *Goal: Enable risk-free strategy execution and multi-channel real-time alerting.*
-- [ ] **Virtual Paper Trading Portfolio**:
+- [x] **Virtual Paper Trading Portfolio**:
   - In-memory simulated exchange account with starting balance ($10,000 USD).
   - Real-time mark-to-market PnL, limit orders, trailing stop-losses, and historical trade ledger.
-- [ ] **Alert & Webhook Notification Engine**:
+- [x] **Alert & Webhook Notification Engine**:
   - Instant Telegram Bot notifications on high-conviction Ensemble triggers (score $\ge 70$) and Supertrend direction flips.
   - Discord channel webhook dispatching for daily risk summaries.
-- [ ] **Perpetual Futures Execution Mechanics**:
+- [x] **Perpetual Futures Execution Mechanics**:
   - Configurable leverage simulator (1x – 10x).
   - Funding rate payment deductions and dynamic slippage modeling.
 
 ---
 
-### 📊 Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`)
+### 🚀 Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`) — *Upcoming*
 *Goal: Provide hedge-fund-grade validation, optimization, and reporting tools.*
 - [x] **Walk-Forward Analysis (WFA) & Parameter Sweeper**:
   - In-sample parameter optimization with out-of-sample stress verification, WFE calculation, and overfit risk classification.

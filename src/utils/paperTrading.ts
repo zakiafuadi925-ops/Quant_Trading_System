@@ -540,22 +540,22 @@ export function processMarketTick(
 
     if (triggerHit) {
       positionsToClose.push({ id: pos.id, price: currentPrice, reason: triggerHit });
-    } else {
-      updatedPositions.push({
-        ...pos,
-        markPrice: currentPrice,
-        notionalValue: pos.quantity * currentPrice,
-        unrealizedPnl: pnl,
-        unrealizedPnlPct: pnlPct,
-        highestPriceSinceEntry: highestPrice,
-        lowestPriceSinceEntry: lowestPrice
-      });
     }
+    
+    updatedPositions.push({
+      ...pos,
+      markPrice: currentPrice,
+      notionalValue: pos.quantity * currentPrice,
+      unrealizedPnl: pnl,
+      unrealizedPnlPct: pnlPct,
+      highestPriceSinceEntry: highestPrice,
+      lowestPriceSinceEntry: lowestPrice
+    });
   }
 
   currentState.positions = updatedPositions;
 
-  // Close triggered positions
+  // Close triggered positions (closePosition will properly remove them from positions and record in tradeLedger)
   for (const item of positionsToClose) {
     currentState = closePosition(currentState, item.id, item.price, item.reason);
   }

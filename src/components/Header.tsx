@@ -13,7 +13,8 @@ import {
   Zap,
   ShieldAlert,
   Radio,
-  Clock
+  Clock,
+  Wallet
 } from 'lucide-react';
 import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 import { WsStatus } from '../services/binanceWs';
@@ -72,6 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const tabs = [
     { id: 'overview', label: 'Market & Backtest', icon: TrendingUp },
+    { id: 'paper-trading', label: 'Paper Trading & Perp', icon: Wallet },
     { id: 'risk', label: 'Risk & VaR', icon: ShieldAlert },
     { id: 'astronacci', label: 'Astronacci & Apogee', icon: Orbit },
     { id: 'lstm', label: 'LSTM Deep Learning', icon: BrainCircuit },
@@ -96,13 +98,13 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
                   Quant Trading System
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                    v5.4.0
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    v6.1.0
                   </span>
                 </h1>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Multi-Asset Matrix • WebSocket Streaming • L2 Depth &amp; CVD • Ensemble Alpha
+                Multi-Asset Matrix • WebSocket Streaming • L2 Depth &amp; CVD • Ensemble Alpha • Paper Trading
               </p>
             </div>
           </div>
