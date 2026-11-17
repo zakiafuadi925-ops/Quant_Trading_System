@@ -30,11 +30,11 @@ flowchart TD
         D["v6.0.0<br/>• FastAPI Inference Service<br/>• 17-Feature Real-Time Pipeline<br/>• In-Browser Vectorized Inference Engine"]
     end
 
-    subgraph P4["Phase 4: Paper Trading & Alerts (UPCOMING)"]
+    subgraph P4["Phase 4: Paper Trading & Alerts (COMPLETED)"]
         E["v6.1.0<br/>• Virtual Paper Trading Wallet<br/>• Telegram & Discord Webhooks<br/>• Futures Slippage & Funding Model"]
     end
 
-    subgraph P5["Phase 5: Institutional Tear-Sheet"]
+    subgraph P5["Phase 5: Institutional Tear-Sheet (COMPLETED)"]
         F["v6.2.0<br/>• Walk-Forward Optimization (WFA)<br/>• Monte Carlo Historical Bootstrap<br/>• PDF / Excel Audit Export"]
     end
 
