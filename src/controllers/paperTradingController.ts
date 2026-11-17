@@ -1,7 +1,7 @@
 import { connectToDatabase } from '../db/mongodb.js';
-import { PaperAccountModel } from '../db/models/PaperAccount';
-import { PaperPositionModel } from '../db/models/PaperPosition';
-import { PaperOrderModel } from '../db/models/PaperOrder';
+import { PaperAccountModel } from '../db/models/PaperAccount.js';
+import { PaperPositionModel } from '../db/models/PaperPosition.js';
+import { PaperOrderModel } from '../db/models/PaperOrder.js';
 import { PaperTradeModel } from '../db/models/PaperTrade';
 import { 
   calculateDynamicSlippage, 
