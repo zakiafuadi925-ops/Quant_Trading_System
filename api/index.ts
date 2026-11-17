@@ -1,16 +1,16 @@
 import express from 'express';
-import { 
-  getPaperTradingSummary, 
-  placeOrderInDb, 
-  closePositionInDb, 
-  cancelOrderInDb, 
-  resetAccountInDb 
-} from '../src/controllers/paperTradingController';
-import { 
-  getAlertRulesFromDb, 
-  saveAlertRuleInDb, 
-  toggleAlertRuleInDb 
-} from '../src/controllers/alertRuleController';
+import {
+  getPaperTradingSummary,
+  placeOrderInDb,
+  closePositionInDb,
+  cancelOrderInDb,
+  resetAccountInDb
+} from '../src/controllers/paperTradingController.js';
+import {
+  getAlertRulesFromDb,
+  saveAlertRuleInDb,
+  toggleAlertRuleInDb
+} from '../src/controllers/alertRuleController.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
