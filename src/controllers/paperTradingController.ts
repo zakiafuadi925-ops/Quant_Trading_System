@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../db/mongodb';
+import { connectToDatabase } from '../db/mongodb.js';
 import { PaperAccountModel } from '../db/models/PaperAccount';
 import { PaperPositionModel } from '../db/models/PaperPosition';
 import { PaperOrderModel } from '../db/models/PaperOrder';

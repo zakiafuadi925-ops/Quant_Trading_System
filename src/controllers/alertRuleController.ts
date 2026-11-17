@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../db/mongodb';
+import { connectToDatabase } from '../db/mongodb.js';
 import { AlertRuleModel } from '../db/models/AlertRule';
 import { DEFAULT_ALERT_RULES } from '../utils/alertEngine';
 
