@@ -17,10 +17,11 @@ import {
   Wallet
 } from 'lucide-react';
 // Navigation menu derived from MENU config
-import { NavLink } from 'react-router-dom';
+
 import { MENU } from '../config/menu';
 import { WsStatus } from '../services/binanceWs';
-import { NavLink } from 'react-router-dom';
+import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
+
 
 interface HeaderProps {
   activeTab: string;
