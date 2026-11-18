@@ -3,16 +3,11 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Radio,
-  ChevronDown,
 } from 'lucide-react';
-import { NAV_CATEGORIES } from '../config/menu';
 import { WsStatus } from '../services/binanceWs';
 import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 
-
-interface HeaderProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+export interface HeaderProps {
   ticker: LiveTicker;
   isFetching: boolean;
   onRefresh: () => void;
@@ -26,8 +21,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
-  activeTab, 
-  setActiveTab, 
   ticker,
   isFetching,
   onRefresh,
@@ -63,10 +56,11 @@ export const Header: React.FC<HeaderProps> = ({
   }, [ticker.price]);
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
-      {/* Top Banner with live stats */}
+    <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-md sticky top-0 z-40">
+      {/* Top Banner with live stats and quick controls */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 border-b border-slate-800/60">
+        <div className="flex items-center justify-between h-16">
+          {/* Brand Logo & Title */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20">
               <span className="font-bold text-white text-lg font-mono">
@@ -97,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     key={s.symbol}
                     onClick={() => onSymbolChange(s.symbol)}
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all uppercase flex items-center gap-1 ${
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all uppercase flex items-center gap-1 cursor-pointer ${
                       selectedSymbol.toUpperCase() === s.symbol
                         ? 'bg-amber-500 text-slate-950 shadow-sm'
                         : 'text-slate-400 hover:text-white'
@@ -140,7 +134,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     key={tf}
                     onClick={() => onTimeframeChange(tf)}
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all uppercase ${
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all uppercase cursor-pointer ${
                       selectedTimeframe === tf
                         ? 'bg-amber-500 text-slate-950 shadow-sm'
                         : 'text-slate-400 hover:text-white'
@@ -195,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onRefresh}
               disabled={isFetching}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors disabled:opacity-50"
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
               title="Manual Fetch latest BTC data"
             >
               <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
@@ -204,93 +198,16 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Feed Config Modal Trigger */}
             <button
               onClick={onOpenFeedModal}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-colors cursor-pointer"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Feed</span>
             </button>
           </div>
         </div>
-
-        {/* Sleek Refined Navbar */}
-        <div className="py-2.5">
-          {/* Mobile Quick Dropdown Selector (< md) */}
-          <div className="md:hidden flex items-center gap-2 mb-2">
-            <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold shrink-0">
-              Module:
-            </span>
-            <div className="relative flex-1">
-              <select
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
-                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-400 focus:outline-none focus:border-amber-500 font-mono pr-8 cursor-pointer"
-              >
-                {NAV_CATEGORIES.map((category) => (
-                  <optgroup key={category.id} label={category.category} className="bg-slate-900 text-slate-300">
-                    {category.items.map((tab) => (
-                      <option key={tab.id} value={tab.id} className="bg-slate-950 text-white">
-                        {tab.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Unified Desktop & Tablet Horizontal Nav Bar */}
-          <nav className="flex items-center gap-2 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800/80 shadow-inner overflow-x-auto no-scrollbar text-xs">
-            {NAV_CATEGORIES.map((category, catIdx) => {
-              const CategoryIcon = category.icon;
-              return (
-                <React.Fragment key={category.id}>
-                  {catIdx > 0 && (
-                    <div className="h-5 w-px bg-slate-800/80 mx-1 shrink-0 hidden sm:block" />
-                  )}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* Category Label Pill */}
-                    <div className="hidden lg:flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 py-1 rounded bg-slate-900/60 border border-slate-800/50 mr-0.5">
-                      <CategoryIcon className="w-3 h-3 text-amber-400/80" />
-                      <span>{category.shortName}</span>
-                    </div>
-
-                    {/* Category Items */}
-                    {category.items.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.id;
-                      return (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer select-none ${
-                            isActive
-                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-md shadow-amber-500/20 scale-[1.02]'
-                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 active:scale-95'
-                          }`}
-                        >
-                          <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
-                          <span className="hidden sm:inline">{tab.label}</span>
-                          <span className="sm:hidden">{tab.shortLabel}</span>
-                          {tab.badge && (
-                            <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                              isActive 
-                                ? 'bg-slate-950/30 text-slate-950' 
-                                : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                            }`}>
-                              {tab.badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </React.Fragment>
-              );
-            })}
-          </nav>
-        </div>
       </div>
     </header>
   );
 };
+
+export default Header;

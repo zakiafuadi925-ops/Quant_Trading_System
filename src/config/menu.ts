@@ -18,6 +18,7 @@ export interface NavTabItem {
   id: string;
   label: string;
   shortLabel: string;
+  description: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }
@@ -37,9 +38,28 @@ export const NAV_CATEGORIES: NavCategory[] = [
     shortName: 'Trading',
     icon: Zap,
     items: [
-      { id: 'overview', label: 'Market & Backtest', shortLabel: 'Backtest', icon: TrendingUp },
-      { id: 'paper-trading', label: 'Paper Trading', shortLabel: 'Paper Perp', icon: Wallet, badge: 'Cloud DB' },
-      { id: 'grid', label: 'Spot Grid Bot', shortLabel: 'Grid Bot', icon: Grid3X3 },
+      { 
+        id: 'overview', 
+        label: 'Market & Backtest', 
+        shortLabel: 'Backtest', 
+        description: 'Multi-strategy backtest engine & L2 orderbook',
+        icon: TrendingUp 
+      },
+      { 
+        id: 'paper-trading', 
+        label: 'Paper Trading', 
+        shortLabel: 'Paper Perp', 
+        description: 'Virtual futures wallet with MongoDB Atlas sync',
+        icon: Wallet, 
+        badge: 'Cloud DB' 
+      },
+      { 
+        id: 'grid', 
+        label: 'Spot Grid Bot', 
+        shortLabel: 'Grid Bot', 
+        description: 'Automated geometric volatility grid engine',
+        icon: Grid3X3 
+      },
     ],
   },
   {
@@ -48,9 +68,29 @@ export const NAV_CATEGORIES: NavCategory[] = [
     shortName: 'Quant AI',
     icon: Sparkles,
     items: [
-      { id: 'lstm', label: 'LSTM Deep Learning', shortLabel: 'LSTM AI', icon: BrainCircuit },
-      { id: 'monte-carlo', label: 'Monte Carlo Engine', shortLabel: 'Monte Carlo', icon: Activity },
-      { id: 'astronacci', label: 'Astronacci & Apogee', shortLabel: 'Astronacci', icon: Orbit },
+      { 
+        id: 'lstm', 
+        label: 'LSTM Deep Learning', 
+        shortLabel: 'LSTM AI', 
+        description: '17-feature directional neural network inference',
+        icon: BrainCircuit,
+        badge: 'Live AI'
+      },
+      { 
+        id: 'monte-carlo', 
+        label: 'Monte Carlo Engine', 
+        shortLabel: 'Monte Carlo', 
+        description: '10,000 parallel path simulation Web Worker',
+        icon: Activity,
+        badge: '10k Paths'
+      },
+      { 
+        id: 'astronacci', 
+        label: 'Astronacci & Apogee', 
+        shortLabel: 'Astronacci', 
+        description: 'Planetary cycle resonance & celestial confluence',
+        icon: Orbit 
+      },
     ],
   },
   {
@@ -59,11 +99,37 @@ export const NAV_CATEGORIES: NavCategory[] = [
     shortName: 'Risk & Portfolio',
     icon: ShieldCheck,
     items: [
-      { id: 'risk', label: 'Risk & VaR', shortLabel: 'Risk & VaR', icon: ShieldAlert },
-      { id: 'portfolio', label: 'Portfolio Rebalance', shortLabel: 'Portfolio', icon: PieChart },
-      { id: 'modules', label: 'Research Modules (1-5)', shortLabel: 'Modules', icon: BookOpen },
+      { 
+        id: 'risk', 
+        label: 'Risk & VaR', 
+        shortLabel: 'Risk & VaR', 
+        description: 'Historical & parametric Value at Risk metrics',
+        icon: ShieldAlert,
+        badge: '99% CL'
+      },
+      { 
+        id: 'portfolio', 
+        label: 'Portfolio Rebalance', 
+        shortLabel: 'Portfolio', 
+        description: 'Multi-asset correlation matrix & mean-variance',
+        icon: PieChart 
+      },
+      { 
+        id: 'modules', 
+        label: 'Research Modules', 
+        shortLabel: 'Modules (1-5)', 
+        description: 'Institutional audit tear-sheet & documentation',
+        icon: BookOpen 
+      },
     ],
   },
 ];
 
 export const ALL_NAV_TABS: NavTabItem[] = NAV_CATEGORIES.flatMap((cat) => cat.items);
+
+export function getCategoryForTab(tabId: string): NavCategory {
+  return (
+    NAV_CATEGORIES.find((cat) => cat.items.some((item) => item.id === tabId)) ||
+    NAV_CATEGORIES[0]
+  );
+}

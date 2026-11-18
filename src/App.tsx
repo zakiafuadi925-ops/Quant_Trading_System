@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
+import { Navbar } from './components/Navbar';
 import { BacktestTab } from './components/BacktestTab';
 import { AstroCycleTab } from './components/AstroCycleTab';
 import { LstmModelTab } from './components/LstmModelTab';
@@ -174,10 +175,8 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Top Navigation */}
+      {/* Top Application Header */}
       <Header
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
         ticker={ticker}
         isFetching={isFetching || isLoadingCandles}
         onRefresh={handleFetchAllData}
@@ -188,6 +187,16 @@ export function App() {
         onTimeframeChange={handleTimeframeChange}
         selectedSymbol={selectedSymbol}
         onSymbolChange={handleSymbolChange}
+      />
+
+      {/* Module Navigation Bar */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
+        selectedSymbol={selectedSymbol}
+        onSymbolChange={handleSymbolChange}
+        selectedTimeframe={timeframe}
+        onTimeframeChange={handleTimeframeChange}
       />
 
       {/* Main Content Area */}
