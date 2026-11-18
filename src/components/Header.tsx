@@ -16,8 +16,11 @@ import {
   Clock,
   Wallet
 } from 'lucide-react';
-import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
+// Navigation menu derived from MENU config
+import { NavLink } from 'react-router-dom';
+import { MENU } from '../config/menu';
 import { WsStatus } from '../services/binanceWs';
+import { NavLink } from 'react-router-dom';
 
 interface HeaderProps {
   activeTab: string;
@@ -71,17 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearTimeout(t);
   }, [ticker.price]);
 
-  const tabs = [
-    { id: 'overview', label: 'Market & Backtest', icon: TrendingUp },
-    { id: 'paper-trading', label: 'Paper Trading & Perp', icon: Wallet },
-    { id: 'risk', label: 'Risk & VaR', icon: ShieldAlert },
-    { id: 'astronacci', label: 'Astronacci & Apogee', icon: Orbit },
-    { id: 'lstm', label: 'LSTM Deep Learning', icon: BrainCircuit },
-    { id: 'monte-carlo', label: 'Monte Carlo Engine', icon: Activity },
-    { id: 'portfolio', label: 'Portfolio & Rebalancing', icon: PieChart },
-    { id: 'grid', label: 'Spot Grid Bot', icon: Grid3X3 },
-    { id: 'modules', label: 'Research Modules (1-5)', icon: BookOpen }
-  ];
+  // use menu configuration for navigation tabs
+const tabs = MENU;
 
   return (
     <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
