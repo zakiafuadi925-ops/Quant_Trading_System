@@ -1,24 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  TrendingUp, 
-  Orbit, 
-  BrainCircuit, 
-  Activity, 
-  PieChart, 
-  Grid3X3, 
-  BookOpen, 
-  Sparkles,
   RefreshCw,
   SlidersHorizontal,
-  Zap,
-  ShieldAlert,
   Radio,
-  Clock,
-  Wallet
+  ChevronDown,
 } from 'lucide-react';
-// Navigation menu derived from MENU config
-
-import { MENU } from '../config/menu';
+import { NAV_CATEGORIES } from '../config/menu';
 import { WsStatus } from '../services/binanceWs';
 import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 
@@ -74,9 +61,6 @@ export const Header: React.FC<HeaderProps> = ({
     const t = setTimeout(() => setPriceFlash(null), 800);
     return () => clearTimeout(t);
   }, [ticker.price]);
-
-  // use menu configuration for navigation tabs
-const tabs = MENU;
 
   return (
     <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40">
@@ -228,27 +212,84 @@ const tabs = MENU;
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <nav className="flex space-x-1 sm:space-x-2 py-2 overflow-x-auto no-scrollbar">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                  isActive
-                    ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
+        {/* Sleek Refined Navbar */}
+        <div className="py-2.5">
+          {/* Mobile Quick Dropdown Selector (< md) */}
+          <div className="md:hidden flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold shrink-0">
+              Module:
+            </span>
+            <div className="relative flex-1">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-400 focus:outline-none focus:border-amber-500 font-mono pr-8 cursor-pointer"
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+                {NAV_CATEGORIES.map((category) => (
+                  <optgroup key={category.id} label={category.category} className="bg-slate-900 text-slate-300">
+                    {category.items.map((tab) => (
+                      <option key={tab.id} value={tab.id} className="bg-slate-950 text-white">
+                        {tab.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Unified Desktop & Tablet Horizontal Nav Bar */}
+          <nav className="flex items-center gap-2 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800/80 shadow-inner overflow-x-auto no-scrollbar text-xs">
+            {NAV_CATEGORIES.map((category, catIdx) => {
+              const CategoryIcon = category.icon;
+              return (
+                <React.Fragment key={category.id}>
+                  {catIdx > 0 && (
+                    <div className="h-5 w-px bg-slate-800/80 mx-1 shrink-0 hidden sm:block" />
+                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Category Label Pill */}
+                    <div className="hidden lg:flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 px-2 py-1 rounded bg-slate-900/60 border border-slate-800/50 mr-0.5">
+                      <CategoryIcon className="w-3 h-3 text-amber-400/80" />
+                      <span>{category.shortName}</span>
+                    </div>
+
+                    {/* Category Items */}
+                    {category.items.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer select-none ${
+                            isActive
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-md shadow-amber-500/20 scale-[1.02]'
+                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 active:scale-95'
+                          }`}
+                        >
+                          <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
+                          <span className="hidden sm:inline">{tab.label}</span>
+                          <span className="sm:hidden">{tab.shortLabel}</span>
+                          {tab.badge && (
+                            <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                              isActive 
+                                ? 'bg-slate-950/30 text-slate-950' 
+                                : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                            }`}>
+                              {tab.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </nav>
+        </div>
       </div>
     </header>
   );

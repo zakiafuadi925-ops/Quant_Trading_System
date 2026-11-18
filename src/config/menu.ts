@@ -1,28 +1,69 @@
-export interface MenuItem {
+import React from 'react';
+import { 
+  TrendingUp, 
+  Wallet, 
+  Grid3X3, 
+  BrainCircuit, 
+  Activity, 
+  Orbit, 
+  ShieldAlert, 
+  PieChart, 
+  BookOpen,
+  Zap,
+  Sparkles,
+  ShieldCheck
+} from 'lucide-react';
+
+export interface NavTabItem {
+  id: string;
   label: string;
-  path: string; // react-router path
-  subItems?: MenuItem[]; // optional dropdown items
+  shortLabel: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
 }
 
-export const MENU: MenuItem[] = [
-  { label: 'Dashboard', path: '/' },
+export interface NavCategory {
+  id: string;
+  category: string;
+  shortName: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavTabItem[];
+}
+
+export const NAV_CATEGORIES: NavCategory[] = [
   {
-    label: 'Paper Trading',
-    path: '/paper',
-    subItems: [
-      { label: 'Summary', path: '/paper/summary' },
-      { label: 'Orders', path: '/paper/orders' },
-      // add more paper‑trading pages as needed
+    id: 'trading',
+    category: 'Trading & Execution',
+    shortName: 'Trading',
+    icon: Zap,
+    items: [
+      { id: 'overview', label: 'Market & Backtest', shortLabel: 'Backtest', icon: TrendingUp },
+      { id: 'paper-trading', label: 'Paper Trading', shortLabel: 'Paper Perp', icon: Wallet, badge: 'Cloud DB' },
+      { id: 'grid', label: 'Spot Grid Bot', shortLabel: 'Grid Bot', icon: Grid3X3 },
     ],
   },
   {
-    label: 'Alert Rules',
-    path: '/alerts',
-    subItems: [
-      { label: 'Daftar', path: '/alerts' },
-      { label: 'Tambah', path: '/alerts/new' },
+    id: 'quant',
+    category: 'Quant & AI Models',
+    shortName: 'Quant AI',
+    icon: Sparkles,
+    items: [
+      { id: 'lstm', label: 'LSTM Deep Learning', shortLabel: 'LSTM AI', icon: BrainCircuit },
+      { id: 'monte-carlo', label: 'Monte Carlo Engine', shortLabel: 'Monte Carlo', icon: Activity },
+      { id: 'astronacci', label: 'Astronacci & Apogee', shortLabel: 'Astronacci', icon: Orbit },
     ],
   },
-  // Future features can be added here, e.g.:
-  // { label: 'Monte Carlo', path: '/monte-carlo' },
+  {
+    id: 'portfolio',
+    category: 'Risk & Portfolio',
+    shortName: 'Risk & Portfolio',
+    icon: ShieldCheck,
+    items: [
+      { id: 'risk', label: 'Risk & VaR', shortLabel: 'Risk & VaR', icon: ShieldAlert },
+      { id: 'portfolio', label: 'Portfolio Rebalance', shortLabel: 'Portfolio', icon: PieChart },
+      { id: 'modules', label: 'Research Modules (1-5)', shortLabel: 'Modules', icon: BookOpen },
+    ],
+  },
 ];
+
+export const ALL_NAV_TABS: NavTabItem[] = NAV_CATEGORIES.flatMap((cat) => cat.items);
