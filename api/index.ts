@@ -2,6 +2,8 @@
 import express from 'express';
 import paperRouter from '../src/routes/paper.js';
 import alertsRouter from '../src/routes/alerts.js';
+import cryptoRouter from '../src/routes/crypto.js';
+import mlRouter from '../src/routes/ml.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -16,7 +18,9 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Mount feature routers
+// Mount all feature routers with full parity between dev and production
+app.use('/api/crypto', cryptoRouter);
+app.use('/api/ml', mlRouter);
 app.use('/api/paper', paperRouter);
 app.use('/api/alerts', alertsRouter);
 
