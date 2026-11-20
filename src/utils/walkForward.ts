@@ -1,5 +1,5 @@
 import { CandleData } from '../types';
-import { getSignal, StrategyModel, StrategyParams } from './strategy';
+import { getSignal, StrategyModel, StrategyParams } from './strategy.js';
 
 export interface BacktestMetrics {
   finalEquity: number;

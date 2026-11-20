@@ -38,6 +38,9 @@
   },
   "jest": {
     "preset": "ts-jest",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\..*)\\.js$": "$1"
+    }
   }
 }

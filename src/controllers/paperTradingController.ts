@@ -2,14 +2,14 @@ import { connectToDatabase } from '../db/mongodb.js';
 import { PaperAccountModel } from '../db/models/PaperAccount.js';
 import { PaperPositionModel } from '../db/models/PaperPosition.js';
 import { PaperOrderModel } from '../db/models/PaperOrder.js';
-import { PaperTradeModel } from '../db/models/PaperTrade';
+import { PaperTradeModel } from '../db/models/PaperTrade.js';
 import { 
   calculateDynamicSlippage, 
   calculateLiquidationPrice, 
   DEFAULT_TAKER_FEE_RATE, 
   DEFAULT_MAKER_FEE_RATE,
   MAINTENANCE_MARGIN_RATE 
-} from '../utils/paperTrading';
+} from '../utils/paperTrading.js';
 
 const DEFAULT_ACCOUNT_ID = 'default_account';
 

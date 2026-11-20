@@ -1,6 +1,6 @@
 import { connectToDatabase } from '../db/mongodb.js';
 import { AlertRuleModel } from '../db/models/AlertRule.js';
-import { DEFAULT_ALERT_RULES } from '../utils/alertEngine';
+import { DEFAULT_ALERT_RULES } from '../utils/alertEngine.js';
 
 export async function getAlertRulesFromDb() {
   await connectToDatabase();

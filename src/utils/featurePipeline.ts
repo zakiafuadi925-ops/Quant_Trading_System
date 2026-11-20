@@ -1,5 +1,5 @@
 import { CandleData } from '../types';
-import { calculateIndicators } from './technicalIndicators';
+import { calculateIndicators } from './technicalIndicators.js';
 
 export interface ModelFeaturesV5 {
   return_1d: number;
