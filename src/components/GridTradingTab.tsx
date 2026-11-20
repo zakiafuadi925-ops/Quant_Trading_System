@@ -25,9 +25,23 @@ export const GridTradingTab: React.FC<GridTradingTabProps> = ({ initialPrice }) 
   const [gridSpacingPct, setGridSpacingPct] = useState<number>(1.7); // 1.7%
   const [numGrids, setNumGrids] = useState<number>(10);
   const [budget, setBudget] = useState<number>(1000);
-  const [accumulatedProfit, setAccumulatedProfit] = useState<number>(142.85);
-  const [filledBuys, setFilledBuys] = useState<number>(12);
-  const [filledSells, setFilledSells] = useState<number>(11);
+  const [accumulatedProfit, setAccumulatedProfit] = useState<number>(0);
+  const [filledBuys, setFilledBuys] = useState<number>(0);
+  const [filledSells, setFilledSells] = useState<number>(0);
+
+  // Synchronize current price when asset changes externally
+  React.useEffect(() => {
+    if (initialPrice && initialPrice > 0) {
+      setCurrentPrice(initialPrice);
+    }
+  }, [initialPrice]);
+
+  const handleResetGrid = () => {
+    setCurrentPrice(initialPrice);
+    setAccumulatedProfit(0);
+    setFilledBuys(0);
+    setFilledSells(0);
+  };
 
   // Generate grid levels based on SimpleGridTrading class from grid_trading.py
   const gridLevels = useMemo(() => {
@@ -99,20 +113,28 @@ export const GridTradingTab: React.FC<GridTradingTabProps> = ({ initialPrice }) 
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleResetGrid}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold font-mono transition-all cursor-pointer"
+              title="Reset Grid simulation to zero"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset
+            </button>
             <button
               onClick={() => handlePriceTick(-1.5)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold font-mono transition-all"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold font-mono transition-all cursor-pointer"
             >
               <ArrowDownRight className="w-4 h-4" />
-              Tick Price Down (-1.5%)
+              Tick -1.5%
             </button>
             <button
               onClick={() => handlePriceTick(1.5)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold font-mono transition-all"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold font-mono transition-all cursor-pointer"
             >
               <ArrowUpRight className="w-4 h-4" />
-              Tick Price Up (+1.5%)
+              Tick +1.5%
             </button>
           </div>
         </div>

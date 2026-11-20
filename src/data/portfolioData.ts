@@ -14,19 +14,19 @@ export const WATCHED_COINS = [
   { symbol: 'TAO', name: 'Bittensor', price: 259.06, change24h: -1.2, change7d: -13.44, volume24h: '$221M', category: 'AI x Crypto', signal: 'HOLD' },
   { symbol: 'LINK', name: 'Chainlink', price: 12.50, change24h: 0.8, change7d: -3.5, volume24h: '$247M', category: 'Oracle / DeFi', signal: 'HOLD' },
   { symbol: 'ARB', name: 'Arbitrum', price: 0.16, change24h: -0.5, change7d: -6.2, volume24h: '$618M', category: 'Layer 2 Rollup', signal: 'WATCH' },
-  { symbol: 'ZEC', name: 'Zcash', price: 1180.00, change24h: -2.1, change7d: -13.44, volume24h: '$999M', category: 'Privacy / Shielded', signal: 'WATCH' }
+  { symbol: 'ZEC', name: 'Zcash', price: 38.50, change24h: -2.1, change7d: -13.44, volume24h: '$68M', category: 'Privacy / Shielded', signal: 'WATCH' }
 ];
 
 export const INITIAL_TRADES: TradeRecord[] = [
   { id: 't-1', timestamp: '2026-05-04 10:42:14', symbol: 'SOL-USD', type: 'BUY', amount: 10, price: 150.0, total: 1500.0, fee: 1.5, pnl: 223.0, pnlPct: 14.87 },
-  { id: 't-2', timestamp: '2026-05-04 10:42:14', symbol: 'BTC-USD', type: 'SELL', amount: 0.2, price: 78000.0, total: 15600.0, fee: 15.6, pnl: 3600.0, pnlPct: 30.0 },
-  { id: 't-3', timestamp: '2026-05-04 10:42:14', symbol: 'ETH-USD', type: 'BUY', amount: 2, price: 2000.0, total: 4000.0, fee: 4.0, pnl: 1881.0, pnlPct: 47.0 },
-  { id: 't-4', timestamp: '2026-05-04 10:42:14', symbol: 'BTC-USD', type: 'BUY', amount: 0.5, price: 60000.0, total: 30000.0, fee: 30.0, pnl: 12631.54, pnlPct: 42.1 },
+  { id: 't-2', timestamp: '2026-05-03 14:28:37', symbol: 'BTC-USD', type: 'SELL', amount: 0.2, price: 78000.0, total: 15600.0, fee: 15.6, pnl: 3600.0, pnlPct: 30.0 },
+  { id: 't-3', timestamp: '2026-05-02 09:15:52', symbol: 'ETH-USD', type: 'BUY', amount: 2, price: 2000.0, total: 4000.0, fee: 4.0, pnl: 1881.0, pnlPct: 47.0 },
+  { id: 't-4', timestamp: '2026-04-30 16:33:08', symbol: 'BTC-USD', type: 'BUY', amount: 0.5, price: 60000.0, total: 30000.0, fee: 30.0, pnl: 12631.54, pnlPct: 42.1 },
   { id: 't-5', timestamp: '2026-04-18 02:10:50', symbol: 'ETH-USD', type: 'BUY', amount: 1.5, price: 3000.0, total: 4500.0, fee: 4.5, pnl: -89.25, pnlPct: -1.98 },
-  { id: 't-6', timestamp: '2026-04-18 02:10:50', symbol: 'BTC-USD', type: 'BUY', amount: 0.1, price: 50000.0, total: 5000.0, fee: 5.0, pnl: 3526.31, pnlPct: 70.53 },
+  { id: 't-6', timestamp: '2026-04-17 11:45:23', symbol: 'BTC-USD', type: 'BUY', amount: 0.1, price: 50000.0, total: 5000.0, fee: 5.0, pnl: 3526.31, pnlPct: 70.53 },
   { id: 't-7', timestamp: '2026-04-15 10:58:14', symbol: 'BTC-USD', type: 'SELL', amount: 0.05, price: 51000.0, total: 2550.0, fee: 2.55, pnl: 50.0, pnlPct: 2.0 },
-  { id: 't-8', timestamp: '2026-04-15 10:58:14', symbol: 'ETH-USD', type: 'BUY', amount: 1.5, price: 3000.0, total: 4500.0, fee: 4.5, pnl: -89.25, pnlPct: -1.98 },
-  { id: 't-9', timestamp: '2026-04-15 10:58:14', symbol: 'BTC-USD', type: 'BUY', amount: 0.1, price: 50000.0, total: 5000.0, fee: 5.0, pnl: 3526.31, pnlPct: 70.53 }
+  { id: 't-8', timestamp: '2026-04-14 08:22:41', symbol: 'ETH-USD', type: 'BUY', amount: 1.5, price: 3000.0, total: 4500.0, fee: 4.5, pnl: -89.25, pnlPct: -1.98 },
+  { id: 't-9', timestamp: '2026-04-12 15:07:33', symbol: 'BTC-USD', type: 'BUY', amount: 0.1, price: 50000.0, total: 5000.0, fee: 5.0, pnl: 3526.31, pnlPct: 70.53 }
 ];
 
 export const PORTFOLIO_CONFIG = {
@@ -39,8 +39,8 @@ export const PORTFOLIO_CONFIG = {
     takeProfit: 0.25
   },
   alerts: [
-    { type: 'price', coin: 'BTC', condition: 'below', value: 45000, active: true },
-    { type: 'price', coin: 'BTC', condition: 'below', value: 55000, active: true },
+    { type: 'price', coin: 'BTC', condition: 'below', value: 70000, active: true },
+    { type: 'price', coin: 'BTC', condition: 'below', value: 75000, active: true },
     { type: 'portfolio', condition: 'total_below', value: 9000, active: true }
   ]
 };

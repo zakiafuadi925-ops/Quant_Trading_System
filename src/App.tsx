@@ -226,7 +226,7 @@ export function App() {
         {activeTab === 'monte-carlo' && <MonteCarloTab currentBtcPrice={ticker.price} />}
         {activeTab === 'portfolio' && <PortfolioTab btcPrice={ticker.price} />}
         {activeTab === 'grid' && <GridTradingTab initialPrice={ticker.price} />}
-        {activeTab === 'modules' && <ModulesTab />}
+        {activeTab === 'modules' && <ModulesTab candles={candles} currentPrice={ticker.price} />}
       </main>
 
       {/* Live Data Configuration Modal */}
