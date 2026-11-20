@@ -2,6 +2,7 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { getCachedOrSyncCandles } from '../controllers/candleController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,7 +149,25 @@ router.get(['/klines', '/candles'], async (req, res) => {
     return res.json(cached.data);
   }
 
-  // Attempt 1: Binance Live Klines API
+  // Attempt 1: MongoDB Database with Auto-Incremental Sync
+  try {
+    const dbResult = await getCachedOrSyncCandles(symbol, interval, limit);
+    if (dbResult.candles && dbResult.candles.length > 0) {
+      const payload = {
+        success: true,
+        source: dbResult.source,
+        symbol,
+        interval,
+        candles: dbResult.candles,
+      };
+      klinesCache.set(cacheKey, { data: payload, timestamp: now });
+      return res.json(payload);
+    }
+  } catch (err) {
+    console.warn('[Routes/Crypto] Database candle cache failed, falling back:', (err as any)?.message || err);
+  }
+
+  // Attempt 2: Direct Binance Live Klines API Fallback
   try {
     const binancePair = `${symbol}USDT`;
     const r = await fetchWithTimeout(
@@ -172,7 +191,7 @@ router.get(['/klines', '/candles'], async (req, res) => {
         }));
         const payload = {
           success: true,
-          source: 'Binance Live Klines',
+          source: 'Binance Live Klines (Fallback)',
           symbol,
           interval,
           candles,
@@ -185,7 +204,7 @@ router.get(['/klines', '/candles'], async (req, res) => {
     // Failover
   }
 
-  // Attempt 2: Historical CSV
+  // Attempt 3: Historical CSV Archive Fallback
   try {
     const csvPath = path.resolve(projectRoot, `trading_data/${symbol}_trading_data.csv`);
     if (fs.existsSync(csvPath)) {
