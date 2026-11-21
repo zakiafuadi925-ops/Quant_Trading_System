@@ -1,12 +1,16 @@
 // Vercel Serverless entry point
 import express, { Request, Response, NextFunction } from 'express';
+import authRouter from '../src/routes/auth.js';
 import paperRouter from '../src/routes/paper.js';
 import alertsRouter from '../src/routes/alerts.js';
 import cryptoRouter from '../src/routes/crypto.js';
 import mlRouter from '../src/routes/ml.js';
+import { publicApiRateLimiter } from '../src/middlewares/rateLimiter.js';
+import { sanitizeInputs } from '../src/middlewares/sanitizer.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
+app.use(sanitizeInputs);
 
 // Global Health Check (support both /api/health and /health)
 app.get(['/health', '/api/health'], (_req: Request, res: Response) => {
@@ -20,8 +24,9 @@ app.get(['/health', '/api/health'], (_req: Request, res: Response) => {
 
 // Mount all feature routers with full parity between dev and production
 // Supporting both with and without /api prefix for robust Vercel rewrite handling
-app.use(['/crypto', '/api/crypto'], cryptoRouter);
-app.use(['/ml', '/api/ml'], mlRouter);
+app.use(['/auth', '/api/auth'], authRouter);
+app.use(['/crypto', '/api/crypto'], publicApiRateLimiter, cryptoRouter);
+app.use(['/ml', '/api/ml'], publicApiRateLimiter, mlRouter);
 app.use(['/paper', '/api/paper'], paperRouter);
 app.use(['/alerts', '/api/alerts'], alertsRouter);
 

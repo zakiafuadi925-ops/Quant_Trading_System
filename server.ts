@@ -8,6 +8,9 @@ import cryptoRouter from "./src/routes/crypto.js";
 import mlRouter from "./src/routes/ml.js";
 import paperRouter from "./src/routes/paper.js";
 import alertsRouter from "./src/routes/alerts.js";
+import authRouter from "./src/routes/auth.js";
+import { publicApiRateLimiter } from "./src/middlewares/rateLimiter.js";
+import { sanitizeInputs } from "./src/middlewares/sanitizer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +21,7 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3002;
 
   app.use(express.json({ limit: "10mb" }));
+  app.use(sanitizeInputs);
 
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
@@ -30,8 +34,9 @@ async function startServer() {
   });
 
   // Feature routers (identical to Vercel Serverless api/index.ts)
-  app.use("/api/crypto", cryptoRouter);
-  app.use("/api/ml", mlRouter);
+  app.use("/api/auth", authRouter);
+  app.use("/api/crypto", publicApiRateLimiter, cryptoRouter);
+  app.use("/api/ml", publicApiRateLimiter, mlRouter);
   app.use("/api/paper", paperRouter);
   app.use("/api/alerts", alertsRouter);
 

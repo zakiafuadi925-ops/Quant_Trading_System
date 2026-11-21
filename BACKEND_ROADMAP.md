@@ -80,18 +80,21 @@ flowchart TD
 
 ---
 
-### 🔵 FASE 3: Keamanan, Autentikasi & Multi-Tenancy
+### 🟢 FASE 3: Keamanan, Autentikasi & Multi-Tenancy (SELESAI ✅)
 
 > **Target:** Mengamankan API dan mendukung multi-user agar portofolio paper trading setiap pengguna terisolasi secara aman.
 
-- [ ] **3.1. User Authentication & Multi-Tenancy**
-  - Sistem autentikasi berbasis JWT (JSON Web Tokens) atau session cookies.
-  - Skema akun pengguna di MongoDB: pemisahan portofolio, histori order, dan alert rules per `userId`.
-- [ ] **3.2. Rate Limiting & Input Sanitization**
-  - Pemasangan `express-rate-limit` pada endpoint publik (`/api/crypto/*` dan `/api/ml/predict`) untuk mencegah brute-force dan scraping berlebihan.
-  - Validasi ketat payload request menggunakan skema Zod (mencegah SQL/NoSQL injection).
-- [ ] **3.3. Immutable Financial Ledger**
-  - Audit trail transaksi keuangan: setiap perubahan balance/equity dicatat dengan hash kriptografis untuk mencegah inkonsistensi saldo.
+- [x] **3.1. User Authentication & Multi-Tenancy**
+  - Sistem autentikasi berbasis JWT (`HMAC-SHA256`) dengan modul secure scrypt hashing & random salt (`src/utils/auth.ts`).
+  - Skema akun pengguna di MongoDB (`src/db/models/User.ts`): registrasi otomatis memisahkan portofolio, histori order, dan saldo dengan `userId` unik (`POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`).
+  - Middleware multi-tenant (`src/middlewares/authMiddleware.ts`): autentikasi `authenticateToken` dan resolusi otomatis `optionalAuth` di router paper trading.
+- [x] **3.2. Rate Limiting & Input Sanitization**
+  - Pemasangan rate limiter sliding-window in-memory (`src/middlewares/rateLimiter.ts`) pada endpoint publik (`/api/crypto/*`, `/api/ml/*`) dan endpoint auth (`/api/auth/*`) untuk mitigasi brute-force dan abusive scraping.
+  - Sanitasi mendalam anti-NoSQL injection (`src/middlewares/sanitizer.ts`) yang memblokir operator query berbahaya (`$gt`, `$where`, `$ne`, regex injection) pada seluruh request body & parameter URL.
+- [x] **3.3. Immutable Financial Ledger**
+  - Skema `LedgerEntry` di MongoDB Atlas (`src/db/models/LedgerEntry.ts`) dengan audit trail finansial terenkripsi.
+  - Rantai hash SHA-256 kriptografis (Merkelized chain / `prevHash`) untuk setiap transaksi deposit, fee order, funding payment, penutupan posisi, dan likuidasi (`src/services/ledgerService.ts`).
+  - Endpoint audit integritas: `GET /api/paper/ledger/:accountId` dan `GET /api/paper/ledger/verify/:accountId` yang memvalidasi kontinuitas hash dan aritmatika saldo secara real-time.
 
 ---
 

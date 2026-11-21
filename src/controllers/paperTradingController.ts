@@ -11,6 +11,8 @@ import {
   MAINTENANCE_MARGIN_RATE 
 } from '../utils/paperTrading.js';
 import { broadcastTradeAlert } from '../services/webhookService.js';
+import { recordLedgerTransaction, verifyLedgerIntegrity } from '../services/ledgerService.js';
+import { LedgerEntryModel } from '../db/models/LedgerEntry.js';
 
 const DEFAULT_ACCOUNT_ID = 'default_account';
 
@@ -188,9 +190,21 @@ export async function placeOrderInDb(
   });
 
   // Deduct taker fee from balance
+  const balanceBeforeOrder = account.balance;
   account.balance -= fee;
   account.totalFeesPaid += fee;
   await account.save();
+
+  // Record fee in immutable ledger
+  recordLedgerTransaction({
+    accountId,
+    type: 'FEE_DEDUCTION',
+    amount: -fee,
+    balanceBefore: balanceBeforeOrder,
+    balanceAfter: account.balance,
+    referenceId: order.orderId,
+    description: `Taker fee for ${order.side} ${order.symbol} (${order.positionSide} ${leverage}x)`
+  }).catch((err) => console.error('[Ledger Error on Order]:', err));
 
   // Async dispatch notification
   broadcastTradeAlert({
@@ -254,10 +268,22 @@ export async function closePositionInDb(
   await PaperPositionModel.deleteOne({ positionId });
 
   // Update account
+  const balanceBeforeClose = account.balance;
   account.balance += netPnl;
   account.totalRealizedPnl += netPnl;
   account.totalFeesPaid += exitFee;
   await account.save();
+
+  // Record closing PnL in immutable financial ledger
+  recordLedgerTransaction({
+    accountId,
+    type: reason === 'LIQUIDATION' ? 'LIQUIDATION' : 'POSITION_CLOSE',
+    amount: netPnl,
+    balanceBefore: balanceBeforeClose,
+    balanceAfter: account.balance,
+    referenceId: position.positionId,
+    description: `Position closed: ${position.side} ${position.symbol} at $${closePrice} [${reason}]`
+  }).catch((err) => console.error('[Ledger Error on Close]:', err));
 
   // Async dispatch notification
   broadcastTradeAlert({
@@ -291,6 +317,9 @@ export async function cancelOrderInDb(orderId: string, accountId = DEFAULT_ACCOU
  */
 export async function resetAccountInDb(accountId = DEFAULT_ACCOUNT_ID) {
   await connectToDatabase();
+  const existingAccount = await PaperAccountModel.findOne({ accountId });
+  const balanceBeforeReset = existingAccount ? existingAccount.balance : 0;
+
   await PaperPositionModel.deleteMany({ accountId });
   await PaperOrderModel.deleteMany({ accountId });
   await PaperTradeModel.deleteMany({ accountId });
@@ -307,6 +336,16 @@ export async function resetAccountInDb(accountId = DEFAULT_ACCOUNT_ID) {
     },
     { upsert: true, new: true }
   );
+
+  // Record reset in immutable ledger
+  recordLedgerTransaction({
+    accountId,
+    type: 'ACCOUNT_RESET',
+    amount: 10000 - balanceBeforeReset,
+    balanceBefore: balanceBeforeReset,
+    balanceAfter: 10000,
+    description: 'Manual trading portfolio reset to $10,000'
+  }).catch((err) => console.error('[Ledger Error on Reset]:', err));
 
   return account;
 }
@@ -551,9 +590,21 @@ export async function processFundingRateSettlement(
   }
 
   // Deduct/credit net funding from account balance
+  const balanceBeforeFunding = account.balance;
   account.balance -= totalFundingFee;
   account.lastFundingTimestamp = Date.now();
   await account.save();
+
+  if (totalFundingFee !== 0) {
+    recordLedgerTransaction({
+      accountId,
+      type: 'FUNDING_PAYMENT',
+      amount: -totalFundingFee,
+      balanceBefore: balanceBeforeFunding,
+      balanceAfter: account.balance,
+      description: `8-Hour funding rate settlement (${(currentFundingRate * 100).toFixed(4)}%) across ${positions.length} position(s)`
+    }).catch((err) => console.error('[Ledger Error on Funding]:', err));
+  }
 
   return {
     settledPositions: positions.length,
@@ -561,4 +612,22 @@ export async function processFundingRateSettlement(
     totalFundingFee,
     remainingBalance: account.balance
   };
+}
+
+/**
+ * Fetch chronological immutable ledger transactions for an account.
+ */
+export async function getAccountLedger(accountId = DEFAULT_ACCOUNT_ID, limit = 50) {
+  await connectToDatabase();
+  const entries = await LedgerEntryModel.find({ accountId })
+    .sort({ sequence: -1 })
+    .limit(limit);
+  return entries;
+}
+
+/**
+ * Run cryptographic hash chain audit on an account's financial ledger.
+ */
+export async function verifyAccountLedger(accountId = DEFAULT_ACCOUNT_ID) {
+  return await verifyLedgerIntegrity(accountId);
 }
