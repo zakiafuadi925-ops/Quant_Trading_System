@@ -1,35 +1,22 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Header } from "./components/Header";
-import { Navbar } from "./components/Navbar";
-import { useAppRouter } from "./hooks/useAppRouter";
-import { BacktestTab } from "./components/BacktestTab";
-import { AstroCycleTab } from "./components/AstroCycleTab";
-import { LstmModelTab } from "./components/LstmModelTab";
-import { MonteCarloTab } from "./components/MonteCarloTab";
-import { PortfolioTab } from "./components/PortfolioTab";
-import { GridTradingTab } from "./components/GridTradingTab";
-import { ModulesTab } from "./components/ModulesTab";
-import { RiskManagementTab } from "./components/RiskManagementTab";
-import { PaperTradingTab } from "./components/PaperTradingTab";
-import { LiveFeedModal } from "./components/LiveFeedModal";
-import { BTC_CANDLES } from "./data/historicalData";
-import {
-  fetchLivePrice,
-  fetchHistoricalCandles,
-  LiveTicker,
-} from "./services/cryptoApi";
-import { binanceWs, WsStatus } from "./services/binanceWs";
-import { CandleData } from "./types";
-import {
-  Sparkles,
-  Terminal,
-  Activity,
-  ShieldCheck,
-  Zap,
-  Database,
-  Clock,
-  Coins,
-} from "lucide-react";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Header } from './components/Header';
+import { Navbar } from './components/Navbar';
+import { useAppRouter } from './hooks/useAppRouter';
+import { BacktestTab } from './components/BacktestTab';
+import { AstroCycleTab } from './components/AstroCycleTab';
+import { LstmModelTab } from './components/LstmModelTab';
+import { MonteCarloTab } from './components/MonteCarloTab';
+import { PortfolioTab } from './components/PortfolioTab';
+import { GridTradingTab } from './components/GridTradingTab';
+import { ModulesTab } from './components/ModulesTab';
+import { RiskManagementTab } from './components/RiskManagementTab';
+import { PaperTradingTab } from './components/PaperTradingTab';
+import { LiveFeedModal } from './components/LiveFeedModal';
+import { BTC_CANDLES } from './data/historicalData';
+import { fetchLivePrice, fetchHistoricalCandles, LiveTicker } from './services/cryptoApi';
+import { binanceWs, WsStatus } from './services/binanceWs';
+import { CandleData } from './types';
+import { Sparkles, Terminal, Activity, ShieldCheck, Zap, Database, Clock, Coins } from 'lucide-react';
 
 export function App() {
   const { activeTab, navigate: handleTabChange } = useAppRouter();
@@ -40,29 +27,27 @@ export function App() {
   const [isLoadingCandles, setIsLoadingCandles] = useState<boolean>(false);
 
   // Active Multi-Asset Universe state (BTC, ETH, SOL, BNB, ADA)
-  const [selectedSymbol, setSelectedSymbol] = useState<string>("BTC");
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC');
 
   // Timeframe resolution state (1h, 4h, 1d, 1w)
-  const [timeframe, setTimeframe] = useState<"1h" | "4h" | "1d" | "1w">("1d");
+  const [timeframe, setTimeframe] = useState<'1h' | '4h' | '1d' | '1w'>('1d');
 
   // WebSocket Live Stream state
-  const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
+  const [wsStatus, setWsStatus] = useState<WsStatus>('disconnected');
 
   // Dynamic Candles Dataset state (initialized with seed, hydrated dynamically)
   const [candles, setCandles] = useState<CandleData[]>(BTC_CANDLES);
-  const [datasetSource, setDatasetSource] = useState<string>(
-    "Compact Seed Fallback",
-  );
+  const [datasetSource, setDatasetSource] = useState<string>('Compact Seed Fallback');
 
   const [ticker, setTicker] = useState<LiveTicker>({
-    symbol: "BTC/USDT",
+    symbol: 'BTC/USDT',
     price: 85263.08,
     change24h: 2.61,
     high24h: 86400.0,
     low24h: 83500.0,
     volume24h: 42100,
-    lastUpdated: "Initial Data",
-    source: "Binance API",
+    lastUpdated: 'Initial Data',
+    source: 'Binance API'
   });
 
   // Fetch live market data (ticker + full dynamic candle dataset for active asset and timeframe)
@@ -72,7 +57,7 @@ export function App() {
     try {
       const [tickerData, dynamicCandles] = await Promise.all([
         fetchLivePrice(selectedSymbol),
-        fetchHistoricalCandles(selectedSymbol, 120, timeframe),
+        fetchHistoricalCandles(selectedSymbol, 120, timeframe)
       ]);
 
       setTicker(tickerData);
@@ -81,7 +66,7 @@ export function App() {
         setDatasetSource(dynamicCandles.source);
       }
     } catch (e) {
-      console.warn("Failed to fetch dynamic market data", e);
+      console.warn('Failed to fetch dynamic market data', e);
     } finally {
       setIsFetching(false);
       setIsLoadingCandles(false);
@@ -89,59 +74,49 @@ export function App() {
   }, [selectedSymbol, timeframe]);
 
   // Handle switching timeframe across the entire application & strategy backtest engine
-  const handleTimeframeChange = useCallback(
-    async (newTf: "1h" | "4h" | "1d" | "1w") => {
-      setTimeframe(newTf);
-      setIsLoadingCandles(true);
-      try {
-        const dynamicCandles = await fetchHistoricalCandles(
-          selectedSymbol,
-          120,
-          newTf,
-        );
-        if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
-          setCandles(dynamicCandles.candles);
-          setDatasetSource(dynamicCandles.source);
-        }
-      } catch (e) {
-        console.warn(`Failed to switch to ${newTf} candles`, e);
-      } finally {
-        setIsLoadingCandles(false);
+  const handleTimeframeChange = useCallback(async (newTf: '1h' | '4h' | '1d' | '1w') => {
+    setTimeframe(newTf);
+    setIsLoadingCandles(true);
+    try {
+      const dynamicCandles = await fetchHistoricalCandles(selectedSymbol, 120, newTf);
+      if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
+        setCandles(dynamicCandles.candles);
+        setDatasetSource(dynamicCandles.source);
       }
-    },
-    [selectedSymbol],
-  );
+    } catch (e) {
+      console.warn(`Failed to switch to ${newTf} candles`, e);
+    } finally {
+      setIsLoadingCandles(false);
+    }
+  }, [selectedSymbol]);
 
   // Handle switching active asset across live WS stream, order book, and backtest dataset
-  const handleSymbolChange = useCallback(
-    async (newSymbol: string) => {
-      setSelectedSymbol(newSymbol);
-      setIsLoadingCandles(true);
-      setIsFetching(true);
+  const handleSymbolChange = useCallback(async (newSymbol: string) => {
+    setSelectedSymbol(newSymbol);
+    setIsLoadingCandles(true);
+    setIsFetching(true);
 
-      // Switch multiplexed WebSocket stream immediately
-      binanceWs.switchSymbol(newSymbol);
+    // Switch multiplexed WebSocket stream immediately
+    binanceWs.switchSymbol(newSymbol);
 
-      try {
-        const [tickerData, dynamicCandles] = await Promise.all([
-          fetchLivePrice(newSymbol),
-          fetchHistoricalCandles(newSymbol, 120, timeframe),
-        ]);
+    try {
+      const [tickerData, dynamicCandles] = await Promise.all([
+        fetchLivePrice(newSymbol),
+        fetchHistoricalCandles(newSymbol, 120, timeframe)
+      ]);
 
-        setTicker(tickerData);
-        if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
-          setCandles(dynamicCandles.candles);
-          setDatasetSource(dynamicCandles.source);
-        }
-      } catch (e) {
-        console.warn(`Failed to switch symbol to ${newSymbol}`, e);
-      } finally {
-        setIsLoadingCandles(false);
-        setIsFetching(false);
+      setTicker(tickerData);
+      if (dynamicCandles.candles && dynamicCandles.candles.length > 0) {
+        setCandles(dynamicCandles.candles);
+        setDatasetSource(dynamicCandles.source);
       }
-    },
-    [timeframe],
-  );
+    } catch (e) {
+      console.warn(`Failed to switch symbol to ${newSymbol}`, e);
+    } finally {
+      setIsLoadingCandles(false);
+      setIsFetching(false);
+    }
+  }, [timeframe]);
 
   // Connect to Binance WebSocket for sub-second live price streaming
   useEffect(() => {
@@ -156,7 +131,7 @@ export function App() {
         low24h: tick.low24h,
         volume24h: tick.volume24h,
         lastUpdated: new Date().toLocaleTimeString(),
-        source: "Binance WebSocket (Live)",
+        source: 'Binance WebSocket (Live)'
       }));
     });
 
@@ -215,9 +190,9 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 tab-panel-container">
-        {activeTab === "overview" && (
-          <BacktestTab
-            candles={candles}
+        {activeTab === 'overview' && (
+          <BacktestTab 
+            candles={candles} 
             currentPrice={ticker.price}
             timeframe={timeframe}
             onTimeframeChange={handleTimeframeChange}
@@ -226,7 +201,7 @@ export function App() {
             onSymbolChange={handleSymbolChange}
           />
         )}
-        {activeTab === "paper-trading" && (
+        {activeTab === 'paper-trading' && (
           <PaperTradingTab
             candles={candles}
             currentPrice={ticker.price}
@@ -234,19 +209,13 @@ export function App() {
             onSymbolChange={handleSymbolChange}
           />
         )}
-        {activeTab === "risk" && (
-          <RiskManagementTab candles={candles} currentPrice={ticker.price} />
-        )}
-        {activeTab === "astronacci" && <AstroCycleTab candles={candles} />}
-        {activeTab === "lstm" && <LstmModelTab candles={candles} />}
-        {activeTab === "monte-carlo" && (
-          <MonteCarloTab currentBtcPrice={ticker.price} />
-        )}
-        {activeTab === "portfolio" && <PortfolioTab btcPrice={ticker.price} />}
-        {activeTab === "grid" && <GridTradingTab initialPrice={ticker.price} />}
-        {activeTab === "modules" && (
-          <ModulesTab candles={candles} currentPrice={ticker.price} />
-        )}
+        {activeTab === 'risk' && <RiskManagementTab candles={candles} currentPrice={ticker.price} />}
+        {activeTab === 'astronacci' && <AstroCycleTab candles={candles} />}
+        {activeTab === 'lstm' && <LstmModelTab candles={candles} />}
+        {activeTab === 'monte-carlo' && <MonteCarloTab currentBtcPrice={ticker.price} />}
+        {activeTab === 'portfolio' && <PortfolioTab btcPrice={ticker.price} />}
+        {activeTab === 'grid' && <GridTradingTab initialPrice={ticker.price} />}
+        {activeTab === 'modules' && <ModulesTab candles={candles} currentPrice={ticker.price} />}
       </main>
 
       {/* Live Data Configuration Modal */}
@@ -269,15 +238,8 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
-              <span
-                className={`w-2 h-2 rounded-full ${wsStatus === "connected" ? "bg-emerald-400 animate-pulse" : isAutoSync ? "bg-emerald-400" : "bg-amber-400"}`}
-              />
-              Mode:{" "}
-              {wsStatus === "connected"
-                ? "WebSocket Live Stream"
-                : isAutoSync
-                  ? `Auto-Sync (${syncInterval}s)`
-                  : "Manual Refresh"}
+              <span className={`w-2 h-2 rounded-full ${wsStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : isAutoSync ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              Mode: {wsStatus === 'connected' ? 'WebSocket Live Stream' : isAutoSync ? `Auto-Sync (${syncInterval}s)` : 'Manual Refresh'}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1.5 text-amber-400 font-medium">
@@ -285,7 +247,9 @@ export function App() {
               Asset: {selectedSymbol}/USDT
             </span>
             <span>•</span>
-            <span className="text-slate-400">Source: {ticker.source}</span>
+            <span className="text-slate-400">
+              Source: {ticker.source}
+            </span>
             <span>•</span>
             <span className="flex items-center gap-1.5 text-amber-400 font-medium">
               <Clock className="w-3.5 h-3.5" />
