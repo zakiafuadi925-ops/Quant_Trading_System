@@ -1,6 +1,6 @@
 # 🚀 Backend Engineering Roadmap: Quant Trading System
 
-Dokumen ini adalah **Panduan Strategis & Roadmap Teknis Rekayasa Backend** untuk sistem *Quantitative Trading System*. Dokumen ini memetakan evolusi dari backend hybrid (Express + Vercel Serverless) saat ini menjadi infrastruktur quant institusional berskala enterprise.
+Dokumen ini adalah **Panduan Strategis & Roadmap Teknis Rekayasa Backend** untuk sistem _Quantitative Trading System_. Dokumen ini memetakan evolusi dari backend hybrid (Express + Vercel Serverless) saat ini menjadi infrastruktur quant institusional berskala enterprise.
 
 ---
 
@@ -47,6 +47,7 @@ flowchart TD
 ## 📅 Rincian Milestone & Tahapan Pengerjaan
 
 ### 🟢 FASE 1: Data Pipeline & Multi-Asset Persistence
+
 > **Target:** Memperluas database MongoDB Atlas agar seluruh aset crypto utama (bukan hanya BTC) memiliki riwayat candle lokal dan tersinkronisasi otomatis tanpa ketergantungan konstan pada rate-limit exchange.
 
 - [ ] **1.1. Multi-Asset Automated Seeding**
@@ -62,7 +63,8 @@ flowchart TD
 ---
 
 ### 🟡 FASE 2: Real-Time Execution Engine & Matching
-> **Target:** Mengubah Paper Trading dari sekadar pencatatan pasif menjadi mesin simulasi bursa futures aktif dengan eksekusi otomatis (*Triggered Order Matching*).
+
+> **Target:** Mengubah Paper Trading dari sekadar pencatatan pasif menjadi mesin simulasi bursa futures aktif dengan eksekusi otomatis (_Triggered Order Matching_).
 
 - [ ] **2.1. Triggered Order Matching Engine**
   - Worker pemantau harga real-time: jika mark price menyentuh `stopLossPrice` atau `takeProfitPrice`, otomatis ubah order `PENDING` -> `FILLED` dan tutup posisi.
@@ -77,6 +79,7 @@ flowchart TD
 ---
 
 ### 🔵 FASE 3: Keamanan, Autentikasi & Multi-Tenancy
+
 > **Target:** Mengamankan API dan mendukung multi-user agar portofolio paper trading setiap pengguna terisolasi secara aman.
 
 - [ ] **3.1. User Authentication & Multi-Tenancy**
@@ -91,6 +94,7 @@ flowchart TD
 ---
 
 ### 🟣 FASE 4: Asynchronous Computing & ML Microservices
+
 > **Target:** Memisahkan komputasi berat (deep learning tensor & simulasi Monte Carlo 10k paths) dari thread HTTP Express.
 
 - [ ] **4.1. Dedicated FastAPI ML Inference Microservice**
@@ -103,7 +107,8 @@ flowchart TD
 ---
 
 ### 🔴 FASE 5: Live Exchange Execution (CCXT Real Trading)
-> **Target:** Menjembatani strategi quant yang telah divalidasi ke bursa crypto nyata (*Live Trading*).
+
+> **Target:** Menjembatani strategi quant yang telah divalidasi ke bursa crypto nyata (_Live Trading_).
 
 - [ ] **5.1. CCXT Adaptor Integration**
   - Pemasangan library CCXT untuk konektivitas standar ke Binance, Bybit, OKX.
@@ -116,17 +121,18 @@ flowchart TD
 
 ## 📊 Matriks Prioritas & Estimasi Pengerjaan
 
-| Inisiatif | Estimasi Kompleksitas | Dampak Sistem | Target Rilis |
-| :--- | :---: | :---: | :---: |
-| **Fase 1: Multi-Asset DB Seeding & Sync** | Rendah (1-2 hari) | Tinggi | `v6.3.0` |
-| **Fase 2: Order Matching & SL/TP Engine** | Menengah (2-3 hari) | Kritis | `v6.4.0` |
-| **Fase 2: Telegram & Discord Webhooks** | Rendah (1 hari) | Menengah | `v6.4.1` |
-| **Fase 3: JWT Auth & Multi-Tenancy** | Menengah (2-3 hari) | Tinggi | `v6.5.0` |
-| **Fase 4: Async Queue & Docker ML** | Tinggi (3-5 hari) | Menengah | `v7.0.0` |
-| **Fase 5: CCXT Live Exchange Bridge** | Sangat Tinggi (5+ hari) | Kritis | `v7.1.0` |
+| Inisiatif                                 |  Estimasi Kompleksitas  | Dampak Sistem | Target Rilis |
+| :---------------------------------------- | :---------------------: | :-----------: | :----------: |
+| **Fase 1: Multi-Asset DB Seeding & Sync** |    Rendah (1-2 hari)    |    Tinggi     |   `v6.3.0`   |
+| **Fase 2: Order Matching & SL/TP Engine** |   Menengah (2-3 hari)   |    Kritis     |   `v6.4.0`   |
+| **Fase 2: Telegram & Discord Webhooks**   |     Rendah (1 hari)     |   Menengah    |   `v6.4.1`   |
+| **Fase 3: JWT Auth & Multi-Tenancy**      |   Menengah (2-3 hari)   |    Tinggi     |   `v6.5.0`   |
+| **Fase 4: Async Queue & Docker ML**       |    Tinggi (3-5 hari)    |   Menengah    |   `v7.0.0`   |
+| **Fase 5: CCXT Live Exchange Bridge**     | Sangat Tinggi (5+ hari) |    Kritis     |   `v7.1.0`   |
 
 ---
 
 ## 🛠️ Rekomendasi Langkah Pertama yang Siap Dikerjakan Sekarang:
+
 1. **Langkah 1**: Mulai **Fase 1.1 & 1.2** — Jalankan auto-seeding data historis `ETH`, `SOL`, `BNB`, dan `ADA` ke MongoDB Atlas agar database terisi lengkap.
 2. **Langkah 2**: Lanjutkan ke **Fase 2.1** — Buat Order Matching Engine otomatis untuk Stop Loss & Take Profit di Paper Trading.
