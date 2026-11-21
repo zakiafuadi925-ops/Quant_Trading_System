@@ -16,6 +16,7 @@ import {
 
 export interface NavTabItem {
   id: string;
+  path: string;
   label: string;
   shortLabel: string;
   description: string;
@@ -40,6 +41,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { 
         id: 'overview', 
+        path: '/overview',
         label: 'Market & Backtest', 
         shortLabel: 'Backtest', 
         description: 'Multi-strategy backtest engine & L2 orderbook',
@@ -47,6 +49,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       { 
         id: 'paper-trading', 
+        path: '/paper-trading',
         label: 'Paper Trading', 
         shortLabel: 'Paper Perp', 
         description: 'Virtual futures wallet with MongoDB Atlas sync',
@@ -55,6 +58,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       { 
         id: 'grid', 
+        path: '/grid',
         label: 'Spot Grid Bot', 
         shortLabel: 'Grid Bot', 
         description: 'Automated geometric volatility grid engine',
@@ -70,6 +74,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { 
         id: 'lstm', 
+        path: '/lstm',
         label: 'LSTM Deep Learning', 
         shortLabel: 'LSTM AI', 
         description: '17-feature directional neural network inference',
@@ -78,6 +83,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       { 
         id: 'monte-carlo', 
+        path: '/monte-carlo',
         label: 'Monte Carlo Engine', 
         shortLabel: 'Monte Carlo', 
         description: '10,000 parallel path simulation Web Worker',
@@ -86,6 +92,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       { 
         id: 'astronacci', 
+        path: '/astronacci',
         label: 'Astronacci & Apogee', 
         shortLabel: 'Astronacci', 
         description: 'Planetary cycle resonance & celestial confluence',
@@ -101,6 +108,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { 
         id: 'risk', 
+        path: '/risk',
         label: 'Risk & VaR', 
         shortLabel: 'Risk & VaR', 
         description: 'Historical & parametric Value at Risk metrics',
@@ -109,6 +117,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       { 
         id: 'portfolio', 
+        path: '/portfolio',
         label: 'Portfolio Rebalance', 
         shortLabel: 'Portfolio', 
         description: 'Multi-asset correlation matrix & mean-variance',
@@ -116,6 +125,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       },
       { 
         id: 'modules', 
+        path: '/modules',
         label: 'Research Modules', 
         shortLabel: 'Modules (1-5)', 
         description: 'Institutional audit tear-sheet & documentation',
@@ -132,4 +142,36 @@ export function getCategoryForTab(tabId: string): NavCategory {
     NAV_CATEGORIES.find((cat) => cat.items.some((item) => item.id === tabId)) ||
     NAV_CATEGORIES[0]
   );
+}
+
+/**
+ * Resolves the tab ID corresponding to a given URL pathname
+ */
+export function getTabFromPath(pathname: string): string {
+  const normalized = (pathname || '/').toLowerCase().trim();
+  if (normalized === '/' || normalized === '') return 'overview';
+
+  // Match direct tab path e.g. /risk or /paper-trading
+  const matched = ALL_NAV_TABS.find(
+    (tab) => tab.path === normalized || `/${tab.id}` === normalized
+  );
+  if (matched) return matched.id;
+
+  // Match category shortcuts e.g. /trading -> overview, /quant -> lstm, /portfolio -> risk
+  const catMatched = NAV_CATEGORIES.find(
+    (cat) => `/${cat.id}` === normalized
+  );
+  if (catMatched && catMatched.items.length > 0) {
+    return catMatched.items[0].id;
+  }
+
+  return 'overview';
+}
+
+/**
+ * Gets the route URL path for a given tab ID
+ */
+export function getPathForTab(tabId: string): string {
+  const matched = ALL_NAV_TABS.find((tab) => tab.id === tabId);
+  return matched ? matched.path : '/overview';
 }
