@@ -2,7 +2,12 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { getCachedOrSyncCandles } from '../controllers/candleController.js';
+import { 
+  getCachedOrSyncCandles, 
+  seedAllSupportedAssets, 
+  syncAllAssetsIncremental,
+  SUPPORTED_SYMBOLS
+} from '../controllers/candleController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -445,6 +450,45 @@ router.get('/correlation', (req, res) => {
     averageCorrelation: avgCorr,
     diversificationScore,
   });
+});
+
+// POST /api/crypto/seed-all - Bulk seed all multi-asset CSVs into MongoDB
+router.post('/seed-all', async (req, res) => {
+  try {
+    const interval = String(req.query.interval || '1d');
+    const summary = await seedAllSupportedAssets(interval);
+    return res.json({
+      success: true,
+      message: 'Multi-asset database seeding completed successfully',
+      interval,
+      summary
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: err?.message || 'Failed to seed multi-asset dataset'
+    });
+  }
+});
+
+// POST /api/crypto/sync-worker - Background incremental sync cron endpoint
+router.post(['/sync-worker', '/sync-candles'], async (req, res) => {
+  try {
+    const interval = String(req.query.interval || '1d');
+    const report = await syncAllAssetsIncremental(interval);
+    return res.json({
+      success: true,
+      message: 'Incremental sync worker executed successfully',
+      interval,
+      timestamp: new Date().toISOString(),
+      report
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: err?.message || 'Incremental sync worker execution failed'
+    });
+  }
 });
 
 export default router;

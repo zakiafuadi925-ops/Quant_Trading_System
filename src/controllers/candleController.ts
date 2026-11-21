@@ -4,9 +4,10 @@ import { fileURLToPath } from 'url';
 import { connectToDatabase } from '../db/mongodb.js';
 import { CandleModel, ICandle } from '../db/models/Candle.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '../../');
+// Cross-environment project root resolver (CJS Jest & ESM compatible)
+const projectRoot = process.cwd();
+
+export const SUPPORTED_SYMBOLS = ['BTC', 'ETH', 'SOL', 'BNB', 'ADA'];
 
 const INTERVAL_MS_MAP: Record<string, number> = {
   '1m': 60 * 1000,
@@ -20,6 +21,18 @@ const INTERVAL_MS_MAP: Record<string, number> = {
 // Throttle exchange sync attempts to avoid hammering the exchange and slowing down responses
 const lastSyncAttemptMap = new Map<string, number>();
 const SYNC_COOLDOWN_MS = 60 * 1000; // 1 minute cooldown between exchange sync attempts
+let isInitialRun = true;
+
+// In-memory LRU-like Cache Tier for sub-millisecond query returns
+interface CacheEntry {
+  data: {
+    source: string;
+    candles: Array<{ timestamp: string; open: number; high: number; low: number; close: number; volume: number }>;
+  };
+  cachedAt: number;
+}
+const memoryKlinesCache = new Map<string, CacheEntry>();
+const MEMORY_CACHE_TTL_MS = 15 * 1000; // 15 seconds fast tier
 
 async function fetchWithTimeout(url: string, ms = 2500) {
   const controller = new AbortController();
@@ -38,7 +51,8 @@ async function fetchWithTimeout(url: string, ms = 2500) {
  * Seed historical candles from local CSV if exists
  */
 export async function seedCandlesFromCsv(symbol: string, interval = '1d'): Promise<number> {
-  const csvPath = path.resolve(projectRoot, `trading_data/${symbol}_trading_data.csv`);
+  const normSymbol = symbol.toUpperCase().replace('USDT', '').replace('/USDT', '').replace('-USD', '');
+  const csvPath = path.resolve(projectRoot, `trading_data/${normSymbol}_trading_data.csv`);
   if (!fs.existsSync(csvPath)) return 0;
 
   try {
@@ -64,7 +78,7 @@ export async function seedCandlesFromCsv(symbol: string, interval = '1d'): Promi
       if (isNaN(openTime)) continue;
 
       docs.push({
-        symbol,
+        symbol: normSymbol,
         interval,
         openTime,
         timestamp: dateStr,
@@ -88,11 +102,31 @@ export async function seedCandlesFromCsv(symbol: string, interval = '1d'): Promi
     }));
 
     const result = await CandleModel.bulkWrite(operations, { ordered: false });
-    return result.upsertedCount + result.modifiedCount;
+    return (result.upsertedCount || 0) + (result.modifiedCount || 0);
   } catch (err) {
-    console.warn(`[CandleSync] CSV seed warning for ${symbol}:`, err);
+    console.warn(`[CandleSync] CSV seed warning for ${normSymbol}:`, err);
     return 0;
   }
+}
+
+/**
+ * Bulk seed all supported crypto assets into MongoDB
+ */
+export async function seedAllSupportedAssets(interval = '1d'): Promise<Record<string, number>> {
+  await connectToDatabase();
+  const summary: Record<string, number> = {};
+
+  for (const sym of SUPPORTED_SYMBOLS) {
+    const count = await CandleModel.countDocuments({ symbol: sym, interval });
+    if (count === 0) {
+      const seeded = await seedCandlesFromCsv(sym, interval);
+      summary[sym] = seeded;
+    } else {
+      summary[sym] = count;
+    }
+  }
+
+  return summary;
 }
 
 /**
@@ -103,8 +137,9 @@ export async function fetchLatestCandlesFromExchange(
   interval = '1d',
   startTime?: number
 ): Promise<number> {
+  const normSymbol = symbol.toUpperCase().replace('USDT', '').replace('/USDT', '').replace('-USD', '');
   try {
-    const binancePair = `${symbol}USDT`;
+    const binancePair = `${normSymbol}USDT`;
     let url = `https://api.binance.com/api/v3/klines?symbol=${binancePair}&interval=${interval}&limit=500`;
     if (startTime && startTime > 0) {
       url += `&startTime=${startTime}`;
@@ -124,7 +159,7 @@ export async function fetchLatestCandlesFromExchange(
         (interval === '1h' || interval === '4h' ? ' ' + iso.split('T')[1].slice(0, 5) : '');
 
       const doc: Partial<ICandle> = {
-        symbol,
+        symbol: normSymbol,
         interval,
         openTime,
         timestamp,
@@ -137,7 +172,7 @@ export async function fetchLatestCandlesFromExchange(
 
       return {
         updateOne: {
-          filter: { symbol, interval, openTime },
+          filter: { symbol: normSymbol, interval, openTime },
           update: { $set: doc },
           upsert: true
         }
@@ -145,15 +180,44 @@ export async function fetchLatestCandlesFromExchange(
     });
 
     const result = await CandleModel.bulkWrite(operations, { ordered: false });
-    return result.upsertedCount + result.modifiedCount;
+    return (result.upsertedCount || 0) + (result.modifiedCount || 0);
   } catch (err) {
-    console.warn(`[CandleSync] Binance incremental fetch warning for ${symbol}:`, (err as any)?.message || err);
+    console.warn(`[CandleSync] Binance incremental fetch warning for ${normSymbol}:`, (err as any)?.message || err);
     return 0;
   }
 }
 
 /**
- * Primary function: Get candles from MongoDB with auto-incremental sync
+ * Sync background worker across all supported assets
+ */
+export async function syncAllAssetsIncremental(interval = '1d'): Promise<Record<string, { latest: string | null; synced: number }>> {
+  await connectToDatabase();
+  const report: Record<string, { latest: string | null; synced: number }> = {};
+  const intervalMs = INTERVAL_MS_MAP[interval] || 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  for (const sym of SUPPORTED_SYMBOLS) {
+    const latest = await CandleModel.findOne({ symbol: sym, interval }).sort({ openTime: -1 }).lean();
+    if (!latest) {
+      // First-time seed if empty
+      const seeded = await seedCandlesFromCsv(sym, interval);
+      report[sym] = { latest: null, synced: seeded };
+    } else {
+      let synced = 0;
+      if (now - latest.openTime > intervalMs) {
+        synced = await fetchLatestCandlesFromExchange(sym, interval, latest.openTime + 1);
+      }
+      report[sym] = { latest: latest.timestamp, synced };
+    }
+  }
+
+  // Clear memory cache to ensure fresh state
+  memoryKlinesCache.clear();
+  return report;
+}
+
+/**
+ * Primary function: Get candles from MongoDB with auto-incremental sync & LRU cache
  */
 export async function getCachedOrSyncCandles(
   symbol: string,
@@ -161,6 +225,17 @@ export async function getCachedOrSyncCandles(
   limit = 90
 ): Promise<{ source: string; candles: Array<{ timestamp: string; open: number; high: number; low: number; close: number; volume: number }> }> {
   const normSymbol = symbol.toUpperCase().replace('USDT', '').replace('/USDT', '').replace('-USD', '');
+  const cacheKey = `${normSymbol}_${interval}_${limit}`;
+  const now = Date.now();
+
+  // Tier 1: Check In-Memory Fast Cache
+  const memoryHit = memoryKlinesCache.get(cacheKey);
+  if (memoryHit && now - memoryHit.cachedAt < MEMORY_CACHE_TTL_MS) {
+    return {
+      source: `${memoryHit.data.source} (In-Memory Tier)`,
+      candles: memoryHit.data.candles
+    };
+  }
   
   // 1. Connect to MongoDB
   const conn = await connectToDatabase();
@@ -187,18 +262,22 @@ export async function getCachedOrSyncCandles(
       const latest = await CandleModel.findOne({ symbol: normSymbol, interval }).sort({ openTime: -1 }).lean();
       if (latest) {
         const intervalMs = INTERVAL_MS_MAP[interval] || 24 * 60 * 60 * 1000;
-        const now = Date.now();
         const syncKey = `${normSymbol}_${interval}`;
         const lastAttempt = lastSyncAttemptMap.get(syncKey) || 0;
 
-        // If latest candle is older than the interval AND cooldown has passed, fetch only the diff
+        // If latest candle is older than the interval AND cooldown has passed, trigger background non-blocking sync
         if (now - latest.openTime > intervalMs && now - lastAttempt > SYNC_COOLDOWN_MS) {
           lastSyncAttemptMap.set(syncKey, now);
           const startTime = latest.openTime + 1;
-          const synced = await fetchLatestCandlesFromExchange(normSymbol, interval, startTime);
-          if (synced > 0) {
-            console.log(`[CandleSync] Incrementally added ${synced} fresh candles for ${normSymbol}.`);
-          }
+          // Non-blocking asynchronous sync so user queries return instantly from MongoDB
+          fetchLatestCandlesFromExchange(normSymbol, interval, startTime)
+            .then((synced) => {
+              if (synced > 0) {
+                console.log(`[CandleSync] Incrementally added ${synced} fresh candles for ${normSymbol}.`);
+                memoryKlinesCache.delete(cacheKey);
+              }
+            })
+            .catch(() => {});
         }
       }
     }
@@ -219,10 +298,15 @@ export async function getCachedOrSyncCandles(
       volume: d.volume
     }));
 
-    return {
+    const result = {
       source: 'MongoDB Historical Database (Incremental Sync)',
       candles
     };
+
+    // Store in memory cache tier
+    memoryKlinesCache.set(cacheKey, { data: result, cachedAt: now });
+
+    return result;
   } catch (err) {
     console.warn(`[CandleSync] Error querying MongoDB for ${normSymbol}:`, err);
     return { source: 'database_error', candles: [] };
