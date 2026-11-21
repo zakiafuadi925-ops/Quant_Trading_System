@@ -62,19 +62,21 @@ flowchart TD
 
 ---
 
-### 🟡 FASE 2: Real-Time Execution Engine & Matching
+### 🟢 FASE 2: Real-Time Execution Engine & Matching (SELESAI ✅)
 
 > **Target:** Mengubah Paper Trading dari sekadar pencatatan pasif menjadi mesin simulasi bursa futures aktif dengan eksekusi otomatis (_Triggered Order Matching_).
 
-- [ ] **2.1. Triggered Order Matching Engine**
-  - Worker pemantau harga real-time: jika mark price menyentuh `stopLossPrice` atau `takeProfitPrice`, otomatis ubah order `PENDING` -> `FILLED` dan tutup posisi.
-  - Mekanisme Trailing Stop Loss dinamis berbasis tick realtime.
-- [ ] **2.2. Funding Rate Payment Scheduler**
-  - Simulasi pembayaran funding rate setiap 8 jam (00:00, 08:00, 16:00 UTC) untuk posisi perpetual futures yang sedang terbuka.
-  - Perhitungan margin ratio dan eksekusi likuidasi otomatis jika margin jatuh di bawah Maintenance Margin ($MMR = 0.5\%$).
-- [ ] **2.3. Multi-Channel Webhook Dispatcher**
-  - Integrasi nyata Telegram Bot API: Kirim notifikasi seketika saat ada sinyal Ensemble Confluence ($\ge 70$) atau posisi terlikuidasi.
-  - Integrasi Discord Channel Webhook: Ringkasan performa portofolio dan PnL harian otomatis.
+- [x] **2.1. Triggered Order Matching Engine**
+  - Worker pemantau harga real-time: jika mark price menyentuh `stopLossPrice` atau `takeProfitPrice`, otomatis ubah order `PENDING` -> `FILLED` dan tutup posisi (`POST /api/paper/matching/process`).
+  - Mekanisme Trailing Stop Loss dinamis berbasis tick realtime dengan automatic high/low tracking.
+  - Limit order fill otomatis saat harga pasar melintasi limit price.
+- [x] **2.2. Funding Rate Payment Scheduler**
+  - Simulasi pembayaran funding rate setiap 8 jam (00:00, 08:00, 16:00 UTC) untuk posisi perpetual futures yang sedang terbuka (`POST /api/paper/funding/settle`).
+  - Perhitungan margin ratio dan eksekusi likuidasi otomatis jika mark price menembus liquidation threshold dengan buffer Maintenance Margin ($MMR = 5\%$).
+- [x] **2.3. Multi-Channel Webhook Dispatcher**
+  - Integrasi Telegram Bot API (`src/services/webhookService.ts`) dengan formatting HTML, notifikasi instan pembukaan/penutupan posisi, SL/TP hit, dan likuidasi.
+  - Integrasi Discord Channel Webhook dengan embed card berwarna (hijau/merah/oranye) untuk event trading, funding, dan likuidasi.
+  - Endpoint test webhook dispatch (`POST /api/paper/webhook/test`).
 
 ---
 

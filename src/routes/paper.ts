@@ -5,7 +5,10 @@ import {
   closePositionInDb,
   cancelOrderInDb,
   resetAccountInDb,
+  processRealTimeMatchingEngine,
+  processFundingRateSettlement,
 } from '../controllers/paperTradingController.js';
+import { broadcastTradeAlert } from '../services/webhookService.js';
 
 const router = Router();
 
@@ -66,6 +69,50 @@ router.post('/reset', async (_req, res) => {
     res.json({ success: true, message: 'Paper Trading Account reset to $10,000 in MongoDB', account });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || 'Failed to reset account.' });
+  }
+});
+
+// POST /api/paper/matching/process - Trigger order matching engine (SL, TP, Limit fill, Liquidation)
+router.post('/matching/process', async (req, res) => {
+  try {
+    const { priceMap } = req.body;
+    if (!priceMap || typeof priceMap !== 'object') {
+      return res.status(400).json({ success: false, message: 'Missing or invalid priceMap object (e.g. { BTC: 85000 }).' });
+    }
+    const result = await processRealTimeMatchingEngine(priceMap);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Matching engine error.' });
+  }
+});
+
+// POST /api/paper/funding/settle - 8-Hour Perpetual funding fee settlement
+router.post('/funding/settle', async (req, res) => {
+  try {
+    const { fundingRate } = req.body;
+    const rate = fundingRate !== undefined ? Number(fundingRate) : 0.0001;
+    const result = await processFundingRateSettlement(rate);
+    res.json({ success: true, data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Funding settlement error.' });
+  }
+});
+
+// POST /api/paper/webhook/test - Test webhook dispatch to Telegram & Discord
+router.post('/webhook/test', async (req, res) => {
+  try {
+    const payload = req.body.payload || {
+      title: 'Manual Test Broadcast Alert',
+      symbol: 'BTC/USDT',
+      side: 'LONG',
+      price: 85263.08,
+      quantity: 0.1,
+      reason: 'TEST_DISPATCH'
+    };
+    const result = await broadcastTradeAlert(payload);
+    res.json({ success: true, dispatched: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Webhook dispatch failed.' });
   }
 });
 
