@@ -12,7 +12,9 @@ Our mission is to evolve this platform from an interactive analytical research d
 3. Non-blocking client-side computing (Web Workers, Native View Transitions).
 4. High-frequency streaming market feeds and institutional risk analytics.
 
-> 💡 **Dedicated Technical Roadmap**: For the complete server-side and database architecture blueprint, see [`BACKEND_ROADMAP.md`](BACKEND_ROADMAP.md).
+> 💡 **Dedicated Technical Roadmaps**:
+> - For the complete server-side, database, and execution engine blueprint, see [`BACKEND_ROADMAP.md`](BACKEND_ROADMAP.md).
+> - For the UI/UX architecture, state management, and terminal components blueprint, see [`ROADMAP_FRONTEND.md`](ROADMAP_FRONTEND.md).
 
 ```mermaid
 flowchart TD
