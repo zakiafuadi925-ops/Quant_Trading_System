@@ -10,6 +10,7 @@ import paperRouter from "./src/routes/paper.js";
 import alertsRouter from "./src/routes/alerts.js";
 import authRouter from "./src/routes/auth.js";
 import jobsRouter from "./src/routes/jobs.js";
+import exchangeRouter from "./src/routes/exchange.js";
 import { publicApiRateLimiter } from "./src/middlewares/rateLimiter.js";
 import { sanitizeInputs } from "./src/middlewares/sanitizer.js";
 
@@ -41,6 +42,7 @@ async function startServer() {
   app.use("/api/paper", paperRouter);
   app.use("/api/alerts", alertsRouter);
   app.use("/api/jobs", jobsRouter);
+  app.use("/api/exchange", exchangeRouter);
 
   // Vite middleware in dev, static serving in prod
   if (process.env.NODE_ENV !== "production") {
