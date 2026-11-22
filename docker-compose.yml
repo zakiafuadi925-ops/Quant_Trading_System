@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # Main Node.js Express Quantitative API Server
+  quant-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - NODE_ENV=production
+      - FASTAPI_INFERENCE_URL=http://quant-ml-inference:8000/predict
+    depends_on:
+      - quant-ml-inference
+    restart: unless-stopped
+
+  # Dedicated FastAPI ML Inference Microservice (LSTM v5.2.1)
+  quant-ml-inference:
+    build:
+      context: .
+      dockerfile: Dockerfile.inference
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    restart: unless-stopped

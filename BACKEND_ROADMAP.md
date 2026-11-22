@@ -98,16 +98,18 @@ flowchart TD
 
 ---
 
-### 🟣 FASE 4: Asynchronous Computing & ML Microservices
+### 🟢 FASE 4: Asynchronous Computing & ML Microservices (SELESAI ✅)
 
 > **Target:** Memisahkan komputasi berat (deep learning tensor & simulasi Monte Carlo 10k paths) dari thread HTTP Express.
 
-- [ ] **4.1. Dedicated FastAPI ML Inference Microservice**
-  - Kontainerisasi service Python (`inference_service.py`) menggunakan Docker.
-  - Integrasi model LSTM v5.2.1 ONNX / TensorFlow Lite untuk inferensi sub-50ms.
-- [ ] **4.2. Asynchronous Job Queue**
-  - Penggunaan message queue (Redis BullMQ / worker threads) untuk eksekusi Backtest panjang (10 tahun candle) dan Walk-Forward Optimization (WFA) tanpa timeout HTTP.
-  - Endpoint polling status pekerjaan: `GET /api/jobs/:id/status`.
+- [x] **4.1. Dedicated FastAPI ML Inference Microservice**
+  - Kontainerisasi service Python (`inference_service.py`) menggunakan `Dockerfile.inference` dan `docker-compose.yml`.
+  - Endpoint manajemen model dan health check: `GET /api/ml/status` dan `GET /api/ml/models`.
+  - Arsitektur Hybrid Inference: Backend Node.js otomatis memprioritaskan inferensi berkecepatan tinggi ke microservice FastAPI (`FASTAPI_INFERENCE_URL`), dengan fallback mulus ke embedded TypeScript engine jika microservice luring.
+- [x] **4.2. Asynchronous Job Queue**
+  - Sistem antrean komputasi asinkronus (`src/services/jobQueueService.ts`) dan skema Mongoose `Job` (`src/db/models/Job.ts`) untuk eksekusi non-blocking Monte Carlo, Walk-Forward Analysis (WFA), dan multi-year backtests.
+  - Endpoint eksekusi dan polling: `POST /api/jobs/monte-carlo`, `POST /api/jobs/walk-forward`, `POST /api/jobs/backtest`, dan endpoint polling status `GET /api/jobs/:id/status`.
+  - Fitur pembatalan tugas berat secara real-time (`POST /api/jobs/:id/cancel`) dan pelacakan progres 0-100% tanpa risiko timeout HTTP gateway.
 
 ---
 

@@ -9,6 +9,7 @@ import mlRouter from "./src/routes/ml.js";
 import paperRouter from "./src/routes/paper.js";
 import alertsRouter from "./src/routes/alerts.js";
 import authRouter from "./src/routes/auth.js";
+import jobsRouter from "./src/routes/jobs.js";
 import { publicApiRateLimiter } from "./src/middlewares/rateLimiter.js";
 import { sanitizeInputs } from "./src/middlewares/sanitizer.js";
 
@@ -39,6 +40,7 @@ async function startServer() {
   app.use("/api/ml", publicApiRateLimiter, mlRouter);
   app.use("/api/paper", paperRouter);
   app.use("/api/alerts", alertsRouter);
+  app.use("/api/jobs", jobsRouter);
 
   // Vite middleware in dev, static serving in prod
   if (process.env.NODE_ENV !== "production") {

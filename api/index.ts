@@ -5,6 +5,7 @@ import paperRouter from '../src/routes/paper.js';
 import alertsRouter from '../src/routes/alerts.js';
 import cryptoRouter from '../src/routes/crypto.js';
 import mlRouter from '../src/routes/ml.js';
+import jobsRouter from '../src/routes/jobs.js';
 import { publicApiRateLimiter } from '../src/middlewares/rateLimiter.js';
 import { sanitizeInputs } from '../src/middlewares/sanitizer.js';
 
@@ -29,6 +30,7 @@ app.use(['/crypto', '/api/crypto'], publicApiRateLimiter, cryptoRouter);
 app.use(['/ml', '/api/ml'], publicApiRateLimiter, mlRouter);
 app.use(['/paper', '/api/paper'], paperRouter);
 app.use(['/alerts', '/api/alerts'], alertsRouter);
+app.use(['/jobs', '/api/jobs'], jobsRouter);
 
 // Global Error Handler to catch any controller exceptions
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
