@@ -7,12 +7,14 @@ This document outlines the strategic milestones, architectural evolutions, and e
 ## 🧭 Vision & Architectural Direction
 
 Our mission is to evolve this platform from an interactive analytical research dashboard into a comprehensive, **production-grade quantitative terminal and algorithmic trading suite** that combines:
+
 1. Multi-factor mathematical indicators and planetary cycle confluence (Astronacci).
 2. Deep learning directional models (LSTM v5.2.1).
 3. Non-blocking client-side computing (Web Workers, Native View Transitions).
 4. High-frequency streaming market feeds and institutional risk analytics.
 
 > 💡 **Dedicated Technical Roadmaps**:
+>
 > - For the complete server-side, database, and execution engine blueprint, see [`BACKEND_ROADMAP.md`](BACKEND_ROADMAP.md).
 > - For the UI/UX architecture, state management, and terminal components blueprint, see [`ROADMAP_FRONTEND.md`](ROADMAP_FRONTEND.md).
 
@@ -53,7 +55,8 @@ flowchart TD
 
 ## 📌 Milestone Roadmap
 
-### ✅ Phase 0: Core Foundation & Analytical Engine (`v5.2.1 PRO`) — *Completed*
+### ✅ Phase 0: Core Foundation & Analytical Engine (`v5.2.1 PRO`) — _Completed_
+
 - [x] **Ensemble Confluence Strategy (0–100 pts)** combining Trend, Volatility, Momentum, RSI, and ML signals.
 - [x] **Supertrend Volatility Trailing Stop**: Segmented SVG pathing, dynamic flip buy/sell signal markers, and HUD readout.
 - [x] **Monte Carlo Stochastic Engine via Web Worker**: Background thread execution of 10,000 paths (zero UI frame drop).
@@ -64,8 +67,10 @@ flowchart TD
 
 ---
 
-### ✅ Phase 1: Real-Time Data Streaming & WebSocket Engine (`v5.3.0`) — *Completed*
-*Goal: Transition from manual REST polling to continuous, sub-second market data synchronization.*
+### ✅ Phase 1: Real-Time Data Streaming & WebSocket Engine (`v5.3.0`) — _Completed_
+
+_Goal: Transition from manual REST polling to continuous, sub-second market data synchronization._
+
 - [x] **Native Binance WebSocket Client**:
   - Direct connection to `wss://stream.binance.com:9443/ws/btcusdt@ticker`.
   - Automatic reconnection logic with exponential backoff and tick flash animation.
@@ -78,8 +83,10 @@ flowchart TD
 
 ---
 
-### ✅ Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`) — *Completed*
-*Goal: Expand research versatility across resolutions and liquid crypto instruments.*
+### ✅ Phase 2: Multi-Timeframe & Multi-Asset Universe (`v5.4.0`) — _Completed_
+
+_Goal: Expand research versatility across resolutions and liquid crypto instruments._
+
 - [x] **Multi-Timeframe Engine**:
   - Dynamic dropdown selector (`1h`, `4h`, `1d`, `1w`) synchronized across Header, Backtest Tab, and Candlestick Terminal.
   - Full strategy recalculation on active resolution bars.
@@ -93,8 +100,10 @@ flowchart TD
 
 ---
 
-### ✅ Phase 3: Machine Learning Live Inference Microservice (`v6.0.0`) — *Completed*
-*Goal: Deploy trained deep learning models (`.keras` / `.h5`) for live predictive inference.*
+### ✅ Phase 3: Machine Learning Live Inference Microservice (`v6.0.0`) — _Completed_
+
+_Goal: Deploy trained deep learning models (`.keras` / `.h5`) for live predictive inference._
+
 - [x] **Python FastAPI Inference Bridge**:
   - Microservice [`inference_service.py`](inference_service.py) with `/health`, `/models`, and `/predict` endpoints loading model manifests.
   - Express full-stack proxy integration via `/api/ml/predict` with multi-asset support.
@@ -107,8 +116,10 @@ flowchart TD
 
 ---
 
-### ✅ Phase 4: Paper Trading & Alert Execution Engine (`v6.1.0`) — *Completed*
-*Goal: Enable risk-free strategy execution and multi-channel real-time alerting.*
+### ✅ Phase 4: Paper Trading & Alert Execution Engine (`v6.1.0`) — _Completed_
+
+_Goal: Enable risk-free strategy execution and multi-channel real-time alerting._
+
 - [x] **Virtual Paper Trading Portfolio**:
   - In-memory simulated exchange account with starting balance ($10,000 USD).
   - Real-time mark-to-market PnL, limit orders, trailing stop-losses, and historical trade ledger.
@@ -121,8 +132,10 @@ flowchart TD
 
 ---
 
-### ✅ Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`) — *Completed*
-*Goal: Provide hedge-fund-grade validation, optimization, and reporting tools.*
+### ✅ Phase 5: Institutional Analytics & Auditing Suite (`v6.2.0`) — _Completed_
+
+_Goal: Provide hedge-fund-grade validation, optimization, and reporting tools._
+
 - [x] **Walk-Forward Analysis (WFA) & Parameter Sweeper**:
   - In-sample parameter optimization with out-of-sample stress verification, WFE calculation, and overfit risk classification.
 - [x] **Historical Monte Carlo Trade Bootstrap**:
@@ -135,6 +148,7 @@ flowchart TD
 ## 🤝 Contributing to the Roadmap
 
 We welcome ideas, feature requests, and community contributions!
+
 - To propose a new strategy or indicator, review [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - To view code architecture and indicator formulations, consult [`ARCHITECTURE.md`](ARCHITECTURE.md).
 - Open an Issue with the tag `[Feature Request]` or `[Roadmap Proposal]` on GitHub.

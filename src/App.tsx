@@ -20,6 +20,8 @@ import {
 } from "./services/cryptoApi";
 import { binanceWs, WsStatus } from "./services/binanceWs";
 import { CandleData } from "./types";
+import { AuthProvider } from "./context/AuthContext";
+import { AuthModal } from "./components/auth/AuthModal";
 import {
   Sparkles,
   Terminal,
@@ -31,9 +33,10 @@ import {
   Coins,
 } from "lucide-react";
 
-export function App() {
+function AppContent() {
   const { activeTab, navigate: handleTabChange } = useAppRouter();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isAutoSync, setIsAutoSync] = useState<boolean>(false); // Manual on-demand API calls by default
   const [syncInterval, setSyncInterval] = useState<number>(30);
   const [isFetching, setIsFetching] = useState<boolean>(false);
@@ -195,6 +198,7 @@ export function App() {
         isFetching={isFetching || isLoadingCandles}
         onRefresh={handleFetchAllData}
         onOpenFeedModal={() => setIsModalOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
         isAutoSync={isAutoSync}
         wsStatus={wsStatus}
         selectedTimeframe={timeframe}
@@ -304,7 +308,21 @@ export function App() {
           </div>
         </div>
       </footer>
+
+      {/* Authentication & Profile Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

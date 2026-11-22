@@ -57,22 +57,23 @@ flowchart TD
 
 ---
 
-### 🟢 FASE 1: Autentikasi, Manajemen Sesi & Multi-User Shell
+### 🟢 FASE 1: Autentikasi, Manajemen Sesi & Multi-User Shell (SELESAI ✅)
 
 > **Target:** Mengintegrasikan endpoint `POST /api/auth/*` ke dalam aplikasi React, menyediakan modal pendaftaran/login, dan mengisolasi portofolio per user.
 
-- [ ] **1.1. Auth Context & JWT Interceptor (`src/context/AuthContext.tsx`)**
-  - State manajemen pengguna global (`user`, `token`, `isAuthenticated`, `login`, `logout`, `register`).
-  - Penyimpanan token aman di `localStorage` dengan verifikasi kedaluwarsa otomatis.
-  - Fetch/Axios request interceptor yang otomatis menyematkan header `Authorization: Bearer <token>`.
-- [ ] **1.2. Auth Modal Component (`src/components/auth/AuthModal.tsx`)**
-  - Tampilan tab interaktif: *Sign In* dan *Create Account*.
-  - Validasi form real-time (format email, kekuatan password minimal 6 karakter).
-  - Pesan error dan loading state yang halus (*skeleton / spinner*).
-- [ ] **1.3. User Avatar & Profile HUD di Header (`src/components/Header.tsx`)**
-  - Menampilkan profil pengguna aktif (nama, email, role: `Trader` / `Admin`).
-  - Dropdown menu pengguna: Saldo Dompet, Riwayat Transaksi, dan tombol *Logout*.
-  - Mode Tamu (*Guest Mode*) otomatis tetap aktif jika user belum login, mengarah ke `default_account`.
+- [x] **1.1. Auth Context & JWT Interceptor (`src/context/AuthContext.tsx`)**
+  - State manajemen pengguna global (`user`, `account`, `token`, `isAuthenticated`, `login`, `logout`, `register`, `authFetch`).
+  - Penyimpanan token aman di `localStorage` (`quant_trading_jwt_token`) dengan verifikasi kedaluwarsa otomatis via `/api/auth/me`.
+  - Fetch helper `authFetch` yang otomatis menyematkan header `Authorization: Bearer <token>`.
+- [x] **1.2. Auth Modal Component (`src/components/auth/AuthModal.tsx`)**
+  - Tampilan modal dialog interaktif dengan tabs: *Sign In* dan *Create Account*.
+  - Validasi form real-time (format email, kekuatan password minimal 6 karakter, nama lengkap).
+  - Indikator feedback kesalahan dan sukses yang responsif dengan animasi transisi halus.
+- [x] **1.3. User Avatar & Profile HUD di Header (`src/components/Header.tsx`)**
+  - Tombol *Sign In* dinamis di Header dengan gradasi amber-orange.
+  - Avatar inisial, nama pengguna, dan badge role (`TRADER` / `ADMIN`) ketika terautentikasi.
+  - Dropdown menu pengguna: ID pengguna, saldo ekuitas portofolio terisolasi (`userId`), dan tombol *Sign Out*.
+  - Mode Tamu (*Guest Mode*) otomatis tetap aktif jika user belum login, mengarah ke `default_account` tanpa merusak fungsionalitas lain.
 
 ---
 
@@ -152,7 +153,7 @@ flowchart TD
 
 | Fase | Inisiatif Frontend | Estimasi Waktu | Dampak User | Status |
 | :---: | :--- | :---: | :---: | :---: |
-| **Fase 1** | Auth Context, JWT Storage & Login/Register Modal | 1-2 sesi | Tinggi | ⏳ Siap Dikerjakan |
+| **Fase 1** | Auth Context, JWT Storage & Login/Register Modal | 1-2 sesi | Tinggi | ✅ Selesai |
 | **Fase 2** | API Key Vault Manager (AES) & Dual-Mode Switcher | 1-2 sesi | Kritis | ⏳ Antrean |
 | **Fase 3** | Circuit Breaker HUD & Emergency Panic Kill-Switch | 1 sesi | Kritis | ⏳ Antrean |
 | **Fase 4** | Async Background Jobs Drawer & 0-100% Progress Bar | 1-2 sesi | Tinggi | ⏳ Antrean |
