@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   saveExchangeApiKey,
   listExchangeApiKeys,
+  deleteExchangeApiKey,
   testVaultKeyConnection,
   executeLiveExchangeOrder,
   getCircuitBreakerInfo,
@@ -18,6 +19,7 @@ router.use(sanitizeInputs);
 // API Key Vault management
 router.post('/keys', saveExchangeApiKey);
 router.get('/keys', listExchangeApiKeys);
+router.delete('/keys/:keyId', deleteExchangeApiKey);
 router.post(['/keys/:keyId/test', '/keys/test'], testVaultKeyConnection);
 
 // Live Execution

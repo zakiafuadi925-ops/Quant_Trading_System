@@ -95,6 +95,26 @@ export async function listExchangeApiKeys(req: AuthenticatedRequest, res: Respon
 }
 
 /**
+ * Deletes an API key from the Vault.
+ */
+export async function deleteExchangeApiKey(req: AuthenticatedRequest, res: Response) {
+  try {
+    const userId = getUserId(req);
+    const keyId = req.params.keyId;
+    await connectToDatabase();
+
+    const result = await ApiKeyVaultModel.deleteOne({ keyId, userId });
+    if (!result || result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: 'Key not found in Vault.' });
+    }
+
+    return res.json({ success: true, message: 'API key deleted successfully from Vault.', keyId });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error?.message || 'Failed to delete API key' });
+  }
+}
+
+/**
  * Tests connection to exchange using a stored encrypted key.
  */
 export async function testVaultKeyConnection(req: AuthenticatedRequest, res: Response) {

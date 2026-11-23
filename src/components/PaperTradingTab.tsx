@@ -18,8 +18,13 @@ import {
   Layers, 
   ChevronRight,
   ExternalLink,
-  Database
+  Database,
+  Zap,
+  KeyRound
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { submitLiveOrder, fetchVaultKeys, VaultKeyItem } from '../services/exchangeApi';
+import { LiveOrderConfirmModal, LiveOrderDetails } from './vault/LiveOrderConfirmModal';
 import { CandleData } from '../types';
 import { SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 import {
@@ -69,16 +74,42 @@ interface PaperTradingTabProps {
   currentPrice: number;
   symbol?: string;
   onSymbolChange?: (symbol: string) => void;
+  tradingMode?: 'paper' | 'live';
+  selectedKeyId?: string;
+  onOpenVaultModal?: () => void;
 }
 
 export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
   candles,
   currentPrice,
   symbol = 'BTC',
-  onSymbolChange
+  onSymbolChange,
+  tradingMode = 'paper',
+  selectedKeyId,
+  onOpenVaultModal
 }) => {
+  const { authFetch } = useAuth();
+
   // Paper Trading Core State
   const [tradingState, setTradingState] = useState<PaperTradingState>(() => loadPaperTradingState());
+  
+  // Live Trading Engine State
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
+  const [isLiveExecuting, setIsLiveExecuting] = useState<boolean>(false);
+  const [pendingLiveOrder, setPendingLiveOrder] = useState<LiveOrderDetails | null>(null);
+  const [activeVaultKey, setActiveVaultKey] = useState<VaultKeyItem | null>(null);
+
+  // Fetch active vault key when live mode is engaged
+  useEffect(() => {
+    if (tradingMode === 'live') {
+      fetchVaultKeys(authFetch).then((keys) => {
+        if (keys && keys.length > 0) {
+          const found = selectedKeyId ? keys.find(k => k.keyId === selectedKeyId) || keys[0] : keys[0];
+          setActiveVaultKey(found);
+        }
+      }).catch(() => {});
+    }
+  }, [tradingMode, selectedKeyId, authFetch]);
   
   // Order Form State
   const [orderSide, setOrderSide] = useState<PaperPositionSide>('LONG');
@@ -265,6 +296,24 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
       return;
     }
 
+    // Branch to Live Exchange Execution if Live Mode is active
+    if (tradingMode === 'live') {
+      const liveDetails: LiveOrderDetails = {
+        symbol: targetSymbol,
+        side: orderSide === 'LONG' ? 'BUY' : 'SELL',
+        positionSide: orderSide,
+        type: orderType,
+        quantity: assetQuantity,
+        price: currentFillPrice,
+        notionalUsd: parsedNotionalUsd,
+        leverage,
+        marginRequired: requiredOrderMargin
+      };
+      setPendingLiveOrder(liveDetails);
+      setIsConfirmModalOpen(true);
+      return;
+    }
+
     if (requiredOrderMargin > freeMargin) {
       setOrderError(`Insufficient free margin! Required: $${requiredOrderMargin.toFixed(2)}, Available: $${freeMargin.toFixed(2)}`);
       return;
@@ -311,6 +360,45 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
 
     // Clear alerts after 4s
     setTimeout(() => setOrderSuccess(null), 4000);
+  };
+
+  const handleConfirmLiveOrder = async () => {
+    if (!pendingLiveOrder) return;
+    setIsLiveExecuting(true);
+    setOrderError(null);
+    try {
+      const res = await submitLiveOrder(
+        {
+          keyId: selectedKeyId || activeVaultKey?.keyId,
+          orderParams: {
+            symbol: `${pendingLiveOrder.symbol}USDT`,
+            side: pendingLiveOrder.side,
+            type: pendingLiveOrder.type,
+            quantity: pendingLiveOrder.quantity,
+            price: pendingLiveOrder.price,
+            leverage: pendingLiveOrder.leverage
+          }
+        },
+        authFetch
+      );
+
+      if (res.success && res.order) {
+        setOrderSuccess(
+          `Live signed order executed on ${res.order.exchange.toUpperCase()}! ID: ${res.order.orderId.slice(0, 10)} (${res.order.status})`
+        );
+        setIsConfirmModalOpen(false);
+        setPendingLiveOrder(null);
+        setTimeout(() => setOrderSuccess(null), 5000);
+      } else {
+        setOrderError(res.message || res.error || 'Failed to execute live order on exchange.');
+        setIsConfirmModalOpen(false);
+      }
+    } catch (err: any) {
+      setOrderError(err?.message || 'Error executing live order on exchange.');
+      setIsConfirmModalOpen(false);
+    } finally {
+      setIsLiveExecuting(false);
+    }
   };
 
   const handleClosePosition = (posId: string) => {
@@ -743,16 +831,49 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
             </div>
           )}
 
+          {/* Live Trading Warning/Status Banner above button */}
+          {tradingMode === 'live' && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs space-y-1">
+              <div className="flex items-center justify-between text-rose-300 font-bold">
+                <span className="flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  Live Order Routing Engaged
+                </span>
+                {onOpenVaultModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenVaultModal}
+                    className="text-[11px] underline text-amber-400 hover:text-amber-300 cursor-pointer"
+                  >
+                    Change Key
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Connected: <span className="text-white font-mono">{activeVaultKey ? `${activeVaultKey.label} (${activeVaultKey.maskedKey})` : 'Default Vault Key'}</span>
+              </p>
+            </div>
+          )}
+
           {/* Submit Order Button */}
           <button
             onClick={handlePlaceOrder}
-            className={`w-full py-3 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg ${
-              orderSide === 'LONG'
+            className={`w-full py-3 rounded-xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer ${
+              tradingMode === 'live'
+                ? orderSide === 'LONG'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 shadow-emerald-500/20'
+                  : 'bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-400 hover:to-red-400 text-white shadow-rose-500/20'
+                : orderSide === 'LONG'
                 ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
                 : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20'
             }`}
           >
-            {orderSide === 'LONG' ? (
+            {tradingMode === 'live' ? (
+              <>
+                <Zap className="w-4 h-4 animate-bounce" />
+                Transmit LIVE {orderSide} ({leverage}x)
+              </>
+            ) : orderSide === 'LONG' ? (
               <>
                 <TrendingUp className="w-4 h-4" /> Place {orderType} Long ({leverage}x)
               </>
@@ -1144,6 +1265,21 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Live Order Double-Confirmation Modal */}
+      <LiveOrderConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => {
+          if (!isLiveExecuting) {
+            setIsConfirmModalOpen(false);
+            setPendingLiveOrder(null);
+          }
+        }}
+        onConfirm={handleConfirmLiveOrder}
+        orderDetails={pendingLiveOrder}
+        activeKey={activeVaultKey}
+        isExecuting={isLiveExecuting}
+      />
     </div>
   );
 };

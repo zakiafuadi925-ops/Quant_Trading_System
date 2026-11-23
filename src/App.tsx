@@ -22,6 +22,7 @@ import { binanceWs, WsStatus } from "./services/binanceWs";
 import { CandleData } from "./types";
 import { AuthProvider } from "./context/AuthContext";
 import { AuthModal } from "./components/auth/AuthModal";
+import { ApiKeyVaultModal } from "./components/vault/ApiKeyVaultModal";
 import {
   Sparkles,
   Terminal,
@@ -37,6 +38,9 @@ function AppContent() {
   const { activeTab, navigate: handleTabChange } = useAppRouter();
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
+  const [tradingMode, setTradingMode] = useState<"paper" | "live">("paper");
+  const [selectedVaultKeyId, setSelectedVaultKeyId] = useState<string | undefined>(undefined);
   const [isAutoSync, setIsAutoSync] = useState<boolean>(false); // Manual on-demand API calls by default
   const [syncInterval, setSyncInterval] = useState<number>(30);
   const [isFetching, setIsFetching] = useState<boolean>(false);
@@ -199,6 +203,9 @@ function AppContent() {
         onRefresh={handleFetchAllData}
         onOpenFeedModal={() => setIsModalOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenVaultModal={() => setIsVaultModalOpen(true)}
+        tradingMode={tradingMode}
+        onTradingModeChange={setTradingMode}
         isAutoSync={isAutoSync}
         wsStatus={wsStatus}
         selectedTimeframe={timeframe}
@@ -236,6 +243,9 @@ function AppContent() {
             currentPrice={ticker.price}
             symbol={selectedSymbol}
             onSymbolChange={handleSymbolChange}
+            tradingMode={tradingMode}
+            selectedKeyId={selectedVaultKeyId}
+            onOpenVaultModal={() => setIsVaultModalOpen(true)}
           />
         )}
         {activeTab === "risk" && (
@@ -313,6 +323,14 @@ function AppContent() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* AES-256-GCM Exchange API Key Vault Modal */}
+      <ApiKeyVaultModal
+        isOpen={isVaultModalOpen}
+        onClose={() => setIsVaultModalOpen(false)}
+        selectedKeyId={selectedVaultKeyId}
+        onSelectKey={setSelectedVaultKeyId}
       />
     </div>
   );
