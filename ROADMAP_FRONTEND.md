@@ -96,20 +96,20 @@ flowchart TD
 
 ---
 
-### 🔴 FASE 3: Institutional Circuit Breaker HUD & Emergency Controls
+### 🟢 FASE 3: Institutional Circuit Breaker HUD & Emergency Controls (SELESAI ✅)
 
 > **Target:** Membawa sistem proteksi modal institusional (Fase 5 Backend) langsung ke pandangan mata trader (*HUD*) dengan tombol darurat satu-klik.
 
-- [ ] **3.1. Circuit Breaker Telemetry Pill di Header**
-  - Badge dinamis: `🟢 CIRCUIT BREAKER: NORMAL` atau `🔴 HALTED: DRAWDOWN LIMIT REACHED`.
-  - Tooltip interaktif menampilkan drawdown 1 jam saat ini (misal `Drawdown: 1.8% / Max: 5.0%`).
-- [ ] **3.2. Emergency Panic Kill-Switch Button**
-  - Tombol darurat merah bertuliskan **"EMERGENCY KILL-SWITCH"** di Header atau bilah atas dashboard.
-  - Modal konfirmasi cepat bertingkat untuk mencegah klik tidak sengaja.
-  - Ketika dipicu, memanggil `POST /api/exchange/circuit-breaker/kill`: seketika membatalkan semua order pending, menutup seluruh posisi aktif di market price, dan mengunci perdagangan.
-- [ ] **3.3. Admin Recovery & Reset Modal**
-  - Jika sistem dalam status `HALTED`, seluruh form trading dinonaktifkan (*disabled*) dengan banner peringatan.
-  - Tombol **"Reset Circuit Breaker"** untuk memulihkan mode normal setelah situasi darurat teratasi (`POST /api/exchange/circuit-breaker/reset`).
+- [x] **3.1. Circuit Breaker Telemetry Pill di Header (`src/components/Header.tsx`)**
+  - Badge dinamis: `🟢 CB: NORMAL`, `🟡 CB: WARNING`, atau `🔴 CB: HALTED` dengan animasi ping real-time.
+  - Banner peringatan darurat merah mencolok saat status `HALTED` aktif dengan pesan alasan pembekuan sistem.
+- [x] **3.2. Emergency Panic Kill-Switch Button (`src/components/circuitBreaker/CircuitBreakerModal.tsx`)**
+  - Panel kontrol darurat dengan telemetri: Drawdown 1 Jam (Max 5%), Drawdown Harian (Max 10%), dan Ambang Kerugian Beruntun (Max 3).
+  - Tombol darurat merah **"Trigger Panic Kill-Switch"** dengan modal konfirmasi bertingkat dan input alasan (*tagging*).
+  - Memanggil `POST /api/exchange/circuit-breaker/kill`: membatalkan seluruh order pending, melikuidasi posisi aktif di market price, dan mengunci perdagangan.
+- [x] **3.3. Admin Recovery & Reset Modal (`src/services/exchangeApi.ts`)**
+  - Tombol **"Reset Circuit Breaker"** memanggil `POST /api/exchange/circuit-breaker/reset` untuk memulihkan status ke `NORMAL` dan mengaktifkan kembali trading.
+  - Polling telemetri risiko otomatis setiap 15 detik di [src/App.tsx](file:///mnt/data/BACK_UP/Code/Quant_Trading_System/src/App.tsx).
 
 ---
 

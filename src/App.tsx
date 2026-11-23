@@ -23,6 +23,8 @@ import { CandleData } from "./types";
 import { AuthProvider } from "./context/AuthContext";
 import { AuthModal } from "./components/auth/AuthModal";
 import { ApiKeyVaultModal } from "./components/vault/ApiKeyVaultModal";
+import { CircuitBreakerModal } from "./components/circuitBreaker/CircuitBreakerModal";
+import { CircuitBreakerState, fetchCircuitBreaker } from "./services/exchangeApi";
 import {
   Sparkles,
   Terminal,
@@ -39,6 +41,8 @@ function AppContent() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
+  const [isCircuitBreakerModalOpen, setIsCircuitBreakerModalOpen] = useState<boolean>(false);
+  const [circuitBreaker, setCircuitBreaker] = useState<CircuitBreakerState | null>(null);
   const [tradingMode, setTradingMode] = useState<"paper" | "live">("paper");
   const [selectedVaultKeyId, setSelectedVaultKeyId] = useState<string | undefined>(undefined);
   const [isAutoSync, setIsAutoSync] = useState<boolean>(false); // Manual on-demand API calls by default
@@ -194,6 +198,22 @@ function AppContent() {
     return () => clearInterval(timer);
   }, [isAutoSync, syncInterval, handleFetchAllData]);
 
+  // Circuit Breaker Telemetry Poller (every 15s)
+  const refreshCircuitBreaker = useCallback(async () => {
+    try {
+      const status = await fetchCircuitBreaker();
+      if (status) setCircuitBreaker(status);
+    } catch (e) {
+      console.debug('Circuit breaker polling skipped:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshCircuitBreaker();
+    const interval = setInterval(refreshCircuitBreaker, 15000);
+    return () => clearInterval(interval);
+  }, [refreshCircuitBreaker]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       {/* Top Application Header */}
@@ -204,6 +224,8 @@ function AppContent() {
         onOpenFeedModal={() => setIsModalOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenVaultModal={() => setIsVaultModalOpen(true)}
+        onOpenCircuitBreakerModal={() => setIsCircuitBreakerModalOpen(true)}
+        circuitBreaker={circuitBreaker}
         tradingMode={tradingMode}
         onTradingModeChange={setTradingMode}
         isAutoSync={isAutoSync}
@@ -331,6 +353,14 @@ function AppContent() {
         onClose={() => setIsVaultModalOpen(false)}
         selectedKeyId={selectedVaultKeyId}
         onSelectKey={setSelectedVaultKeyId}
+      />
+
+      {/* Institutional Circuit Breaker & Emergency Panic HUD */}
+      <CircuitBreakerModal
+        isOpen={isCircuitBreakerModalOpen}
+        onClose={() => setIsCircuitBreakerModalOpen(false)}
+        circuitBreaker={circuitBreaker}
+        onUpdateStatus={setCircuitBreaker}
       />
     </div>
   );

@@ -12,6 +12,7 @@ import {
 import { WsStatus } from '../services/binanceWs';
 import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 import { useAuth } from '../context/AuthContext';
+import { CircuitBreakerState } from '../services/exchangeApi';
 
 export interface HeaderProps {
   ticker: LiveTicker;
@@ -20,6 +21,8 @@ export interface HeaderProps {
   onOpenFeedModal: () => void;
   onOpenAuthModal?: () => void;
   onOpenVaultModal?: () => void;
+  onOpenCircuitBreakerModal?: () => void;
+  circuitBreaker?: CircuitBreakerState | null;
   tradingMode?: 'paper' | 'live';
   onTradingModeChange?: (mode: 'paper' | 'live') => void;
   isAutoSync: boolean;
@@ -37,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFeedModal,
   onOpenAuthModal,
   onOpenVaultModal,
+  onOpenCircuitBreakerModal,
+  circuitBreaker,
   tradingMode = 'paper',
   onTradingModeChange,
   isAutoSync,
@@ -153,6 +158,34 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               )}
             </div>
+
+            {/* Circuit Breaker Safety Telemetry Pill */}
+            {onOpenCircuitBreakerModal && (
+              <button
+                type="button"
+                onClick={onOpenCircuitBreakerModal}
+                className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                  circuitBreaker?.status === 'HALTED'
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-500/20 animate-pulse'
+                    : circuitBreaker?.status === 'WARNING'
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                }`}
+                title={`Circuit Breaker: ${circuitBreaker?.status || 'NORMAL'} (Click for Telemetry HUD & Kill-Switch)`}
+              >
+                <span className="relative flex h-2 w-2">
+                  {circuitBreaker?.status === 'HALTED' ? (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                    </>
+                  ) : (
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${circuitBreaker?.status === 'WARNING' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                  )}
+                </span>
+                <span>CB: {circuitBreaker?.status || 'NORMAL'}</span>
+              </button>
+            )}
 
             {/* Global Timeframe Quick Switcher */}
             {onTimeframeChange && (
@@ -346,8 +379,36 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
+      {/* Circuit Breaker Emergency Halted Banner */}
+      {circuitBreaker?.status === 'HALTED' && (
+        <div className="bg-rose-950 border-t border-rose-500/50 px-4 py-1.5 text-xs text-rose-200 animate-pulse font-sans">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+              </span>
+              <span className="font-bold text-white tracking-wide font-mono">
+                🚨 CIRCUIT BREAKER HALTED:
+              </span>
+              <span className="text-rose-200 text-[11px]">
+                Order routing is halted due to safety kill-switch ({circuitBreaker.triggerReason || 'Drawdown limit'}).
+              </span>
+            </div>
+            {onOpenCircuitBreakerModal && (
+              <button
+                onClick={onOpenCircuitBreakerModal}
+                className="underline hover:text-white text-[11px] font-mono cursor-pointer ml-2 text-rose-300 font-bold"
+              >
+                Inspect Telemetry / Reset →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Live Trading Warning Banner */}
-      {tradingMode === 'live' && (
+      {tradingMode === 'live' && circuitBreaker?.status !== 'HALTED' && (
         <div className="bg-gradient-to-r from-rose-950 via-amber-950 to-rose-950 border-t border-rose-500/30 px-4 py-1.5 text-xs text-rose-200 animate-fade-in font-sans">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2">

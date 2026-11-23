@@ -171,3 +171,36 @@ export async function fetchCircuitBreaker(
     return null;
   }
 }
+
+export async function triggerEmergencyKill(
+  reason?: string,
+  authFetch?: (url: string, init?: RequestInit) => Promise<Response>
+): Promise<{ success: boolean; message: string; result?: any }> {
+  try {
+    const fetcher = authFetch || fetch;
+    const res = await fetcher('/api/exchange/circuit-breaker/kill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || 'MANUAL_EMERGENCY_PANIC' })
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Error triggering emergency kill-switch' };
+  }
+}
+
+export async function resetCircuitBreakerApi(
+  authFetch?: (url: string, init?: RequestInit) => Promise<Response>
+): Promise<{ success: boolean; message: string; status?: CircuitBreakerState }> {
+  try {
+    const fetcher = authFetch || fetch;
+    const res = await fetcher('/api/exchange/circuit-breaker/reset', {
+      method: 'POST'
+    });
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Error resetting circuit breaker' };
+  }
+}
