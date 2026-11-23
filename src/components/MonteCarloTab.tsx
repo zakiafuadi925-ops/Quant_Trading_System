@@ -16,12 +16,14 @@ import {
   Sliders,
   DollarSign
 } from 'lucide-react';
+import { submitMonteCarloJob } from '../services/jobApi';
 
 interface MonteCarloTabProps {
   currentBtcPrice: number;
+  onOpenJobDrawer?: () => void;
 }
 
-export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice }) => {
+export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice, onOpenJobDrawer }) => {
   // Engine Mode Switch: GBM Price Paths vs Historical Trade Bootstrap
   const [engineMode, setEngineMode] = useState<'GBM_PRICE' | 'TRADE_BOOTSTRAP'>('GBM_PRICE');
 
@@ -33,6 +35,7 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
   const [seedVersion, setSeedVersion] = useState<number>(1);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isWorkerActive, setIsWorkerActive] = useState<boolean>(true);
+  const [isAsyncEnqueuing, setIsAsyncEnqueuing] = useState<boolean>(false);
 
   // --- Mode 2: Trade Bootstrap State ---
   const [bootstrapIterations, setBootstrapIterations] = useState<number>(5000);
@@ -202,6 +205,24 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
   const scaleBsX = (step: number) => padding.left + (step / tradeHorizon) * (chartWidth - padding.left - padding.right);
   const scaleBsY = (eq: number) => chartHeight - padding.bottom - ((eq - minBootstrapEq) / (maxBootstrapEq - minBootstrapEq || 1)) * (chartHeight - padding.top - padding.bottom);
 
+  const handleDispatchAsyncMonteCarlo = async () => {
+    setIsAsyncEnqueuing(true);
+    try {
+      const res = await submitMonteCarloJob({
+        numSimulations: 10000,
+        days: horizonDays,
+        currentPrice: currentBtcPrice,
+        drift: dailyDriftPct / 100,
+        volatility: dailyVolPct / 100
+      });
+      if (res.success && onOpenJobDrawer) {
+        onOpenJobDrawer();
+      }
+    } finally {
+      setIsAsyncEnqueuing(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-100">
       {/* Top Engine Navigation Tabs */}
@@ -269,14 +290,27 @@ export const MonteCarloTab: React.FC<MonteCarloTabProps> = ({ currentBtcPrice })
                 </p>
               </div>
 
-              <button
-                onClick={() => setSeedVersion((prev) => prev + 1)}
-                disabled={isSimulating}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50"
-              >
-                <RotateCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : ''}`} />
-                Re-run Simulation ({nPaths.toLocaleString()} Paths)
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDispatchAsyncMonteCarlo}
+                  disabled={isAsyncEnqueuing}
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/40 font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  title="Enqueue heavy 10,000 paths simulation to background compute queue"
+                >
+                  <Cpu className={`w-4 h-4 text-cyan-400 ${isAsyncEnqueuing ? 'animate-spin' : ''}`} />
+                  <span>{isAsyncEnqueuing ? 'Enqueuing...' : 'Async 10k Paths'}</span>
+                </button>
+
+                <button
+                  onClick={() => setSeedVersion((prev) => prev + 1)}
+                  disabled={isSimulating}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <RotateCw className={`w-4 h-4 ${isSimulating ? 'animate-spin' : ''}`} />
+                  Re-run Simulation ({nPaths.toLocaleString()} Paths)
+                </button>
+              </div>
             </div>
 
             {/* Parameter Sliders */}

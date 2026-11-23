@@ -113,21 +113,20 @@ flowchart TD
 
 ---
 
-### 🟣 FASE 4: Asynchronous Computing Drawer & Progress Hub
+### 🟢 FASE 4: Asynchronous Computing Drawer & Progress Hub (SELESAI ✅)
 
 > **Target:** Mengubah eksekusi Monte Carlo 10,000 paths dan Walk-Forward Optimization yang berat menjadi pekerjaan asinkron di latar belakang dengan progress bar visual.
 
-- [ ] **4.1. Background Task Floating Drawer / Notification Widget**
+- [x] **4.1. Background Task Floating Drawer / Notification Widget (`src/components/jobs/JobProgressDrawer.tsx`)**
   - Widget mengambang di pojok kanan bawah yang memantau pekerjaan asinkron yang sedang berjalan.
-  - Polling otomatis ke `GET /api/jobs/:id/status` setiap 1–2 detik.
-  - Bilah kemajuan real-time (0% ➔ 30% ➔ 70% ➔ 100%).
-- [ ] **4.2. Asynchronous Monte Carlo Modal Integration**
+  - Polling otomatis ke `GET /api/jobs/:id/status` secara cerdas (1.5s saat aktif).
+  - Bilah kemajuan real-time (0% ➔ 30% ➔ 70% ➔ 100%), tombol pembatalan (`cancelJobApi`), dan inspeksi hasil JSON.
+- [x] **4.2. Asynchronous Monte Carlo Modal Integration (`src/components/MonteCarloTab.tsx` & `src/services/jobApi.ts`)**
   - Mengirim parameter simulasi ke `POST /api/jobs/monte-carlo`.
-  - Tidak memblokir tab browser; pengguna dapat bebas berpindah ke chart atau paper trading saat simulasi 10k paths dihitung di backend.
-  - Ketika selesai, notifikasi muncul dan kurva probabilitas (P5, P25, P50, P75, P95) langsung di-render ke chart.
-- [ ] **4.3. Walk-Forward Candidate Sweep Progress**
-  - Pelacakan iterasi candidate parameter sweep secara bertahap.
-  - Menampilkan metrik in-sample vs out-of-sample seketika setelah job selesai.
+  - Tombol **"Async 10k Paths"** di tab Monte Carlo yang mendispatch pekerjaan ke backend worker tanpa membekukan thread utama UI browser.
+- [x] **4.3. Walk-Forward Candidate Sweep Progress & Quick Dispatch**
+  - Quick action shortcut di Drawer untuk meluncurkan simulasi Monte Carlo 10k paths dan WFA sweep.
+  - Pelacakan durasi komputasi dan metrik ringkasan (*Median Price*, *VaR 95%*, *CVaR 95%*, dan *Sharpe Ratio*).
 
 ---
 

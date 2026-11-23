@@ -24,6 +24,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { AuthModal } from "./components/auth/AuthModal";
 import { ApiKeyVaultModal } from "./components/vault/ApiKeyVaultModal";
 import { CircuitBreakerModal } from "./components/circuitBreaker/CircuitBreakerModal";
+import { JobProgressDrawer } from "./components/jobs/JobProgressDrawer";
 import { CircuitBreakerState, fetchCircuitBreaker } from "./services/exchangeApi";
 import {
   Sparkles,
@@ -42,6 +43,7 @@ function AppContent() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
   const [isCircuitBreakerModalOpen, setIsCircuitBreakerModalOpen] = useState<boolean>(false);
+  const [isJobDrawerOpen, setIsJobDrawerOpen] = useState<boolean>(false);
   const [circuitBreaker, setCircuitBreaker] = useState<CircuitBreakerState | null>(null);
   const [tradingMode, setTradingMode] = useState<"paper" | "live">("paper");
   const [selectedVaultKeyId, setSelectedVaultKeyId] = useState<string | undefined>(undefined);
@@ -276,7 +278,10 @@ function AppContent() {
         {activeTab === "astronacci" && <AstroCycleTab candles={candles} />}
         {activeTab === "lstm" && <LstmModelTab candles={candles} />}
         {activeTab === "monte-carlo" && (
-          <MonteCarloTab currentBtcPrice={ticker.price} />
+          <MonteCarloTab
+            currentBtcPrice={ticker.price}
+            onOpenJobDrawer={() => setIsJobDrawerOpen(true)}
+          />
         )}
         {activeTab === "portfolio" && <PortfolioTab btcPrice={ticker.price} />}
         {activeTab === "grid" && <GridTradingTab initialPrice={ticker.price} />}
@@ -361,6 +366,12 @@ function AppContent() {
         onClose={() => setIsCircuitBreakerModalOpen(false)}
         circuitBreaker={circuitBreaker}
         onUpdateStatus={setCircuitBreaker}
+      />
+
+      {/* Floating Background Compute Hub Drawer */}
+      <JobProgressDrawer
+        isOpen={isJobDrawerOpen}
+        onToggle={() => setIsJobDrawerOpen(!isJobDrawerOpen)}
       />
     </div>
   );
