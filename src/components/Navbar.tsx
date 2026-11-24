@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <nav className="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-16 z-30 transition-all">
+    <nav className="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md z-30 transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 relative">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           {/* Left: Fluid Two-Stage Interactive Navigation */}

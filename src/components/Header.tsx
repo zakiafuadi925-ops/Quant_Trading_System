@@ -91,10 +91,10 @@ export const Header: React.FC<HeaderProps> = ({
   }, [ticker.price]);
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-md sticky top-0 z-40">
+    <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md">
       {/* Top Banner with live stats and quick controls */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between min-h-16 py-1 sm:py-0">
           {/* Brand Logo & Title */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20">
@@ -121,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Multi-Asset Universe Quick Switcher */}
             {onSymbolChange && (
-              <div className="flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800 font-mono text-xs shadow-inner">
+              <div className="hidden xl:flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800 font-mono text-xs shadow-inner">
                 {SUPPORTED_SYMBOLS.map((s) => (
                   <button
                     key={s.symbol}
@@ -140,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* WebSocket Stream Badge */}
-            <div className="hidden md:flex items-center">
+            <div className="hidden lg:flex items-center">
               {wsStatus === 'connected' ? (
                 <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold flex items-center gap-1.5 shadow-sm shadow-emerald-500/10">
                   <span className="relative flex h-2 w-2">
@@ -192,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Global Timeframe Quick Switcher */}
             {onTimeframeChange && (
-              <div className="hidden lg:flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800 font-mono text-xs">
+              <div className="hidden 2xl:flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800 font-mono text-xs">
                 {(['1h', '4h', '1d', '1w'] as const).map((tf) => (
                   <button
                     key={tf}

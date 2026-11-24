@@ -249,36 +249,38 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Top Application Header */}
-      <Header
-        ticker={ticker}
-        isFetching={isFetching || isLoadingCandles}
-        onRefresh={handleFetchAllData}
-        onOpenFeedModal={() => setIsModalOpen(true)}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        onOpenVaultModal={() => setIsVaultModalOpen(true)}
-        onOpenCircuitBreakerModal={() => setIsCircuitBreakerModalOpen(true)}
-        onOpenLedgerModal={() => setIsLedgerModalOpen(true)}
-        circuitBreaker={circuitBreaker}
-        tradingMode={tradingMode}
-        onTradingModeChange={setTradingMode}
-        isAutoSync={isAutoSync}
-        wsStatus={wsStatus}
-        selectedTimeframe={timeframe}
-        onTimeframeChange={handleTimeframeChange}
-        selectedSymbol={selectedSymbol}
-        onSymbolChange={handleSymbolChange}
-      />
+      {/* Top Application Shell (Sticky Header & Seamless Navbar Container) */}
+      <div className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md">
+        <Header
+          ticker={ticker}
+          isFetching={isFetching || isLoadingCandles}
+          onRefresh={handleFetchAllData}
+          onOpenFeedModal={() => setIsModalOpen(true)}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onOpenVaultModal={() => setIsVaultModalOpen(true)}
+          onOpenCircuitBreakerModal={() => setIsCircuitBreakerModalOpen(true)}
+          onOpenLedgerModal={() => setIsLedgerModalOpen(true)}
+          circuitBreaker={circuitBreaker}
+          tradingMode={tradingMode}
+          onTradingModeChange={setTradingMode}
+          isAutoSync={isAutoSync}
+          wsStatus={wsStatus}
+          selectedTimeframe={timeframe}
+          onTimeframeChange={handleTimeframeChange}
+          selectedSymbol={selectedSymbol}
+          onSymbolChange={handleSymbolChange}
+        />
 
-      {/* Module Navigation Bar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        selectedSymbol={selectedSymbol}
-        onSymbolChange={handleSymbolChange}
-        selectedTimeframe={timeframe}
-        onTimeframeChange={handleTimeframeChange}
-      />
+        {/* Module Navigation Bar */}
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          selectedSymbol={selectedSymbol}
+          onSymbolChange={handleSymbolChange}
+          selectedTimeframe={timeframe}
+          onTimeframeChange={handleTimeframeChange}
+        />
+      </div>
 
       {/* Main Content Area with Code-Splitting Suspense */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 tab-panel-container">
