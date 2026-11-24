@@ -96,23 +96,23 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between min-h-16 py-1 sm:py-0">
           {/* Brand Logo & Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
               <span className="font-bold text-white text-lg font-mono">
                 {SYMBOL_ICONS[selectedSymbol.toUpperCase()] || '₿'}
               </span>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2 whitespace-nowrap">
                   Quant Trading System
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     v6.2.0
                   </span>
                 </h1>
               </div>
-              <p className="text-xs text-slate-400 hidden sm:block">
-                Multi-Asset Matrix • WebSocket Streaming • L2 Depth &amp; CVD • Ensemble Alpha • Paper Trading
+              <p className="text-xs text-slate-400 hidden 2xl:block truncate max-w-xs md:max-w-md">
+                Institutional Matrix • Alpha Engine • L2 CVD
               </p>
             </div>
           </div>
