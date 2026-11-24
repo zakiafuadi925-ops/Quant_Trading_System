@@ -130,7 +130,7 @@ router.get(['/ledger', '/ledger/:accountId'], async (req: AuthenticatedRequest, 
 });
 
 // GET /api/paper/ledger/verify/:accountId? - Audit cryptographic hash chain
-router.get(['/ledger-verify', '/ledger/verify/:accountId?'], async (req: AuthenticatedRequest, res) => {
+router.get(['/ledger-verify', '/ledger/verify', '/ledger/verify/:accountId'], async (req: AuthenticatedRequest, res) => {
   try {
     const rawAccountId = req.params.accountId ? (Array.isArray(req.params.accountId) ? req.params.accountId[0] : req.params.accountId) : resolveAccountId(req);
     const accountId = String(rawAccountId);
