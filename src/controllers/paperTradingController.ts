@@ -16,11 +16,34 @@ import { LedgerEntryModel } from '../db/models/LedgerEntry.js';
 
 const DEFAULT_ACCOUNT_ID = 'default_account';
 
+// In-memory fallback stores when MongoDB is not connected
+const inMemoryAccounts = new Map<string, any>();
+const inMemoryPositions = new Map<string, any[]>();
+const inMemoryOrders = new Map<string, any[]>();
+const inMemoryTrades = new Map<string, any[]>();
+
 /**
  * Get or initialize paper trading account from MongoDB.
  */
 export async function getOrCreateAccount(accountId = DEFAULT_ACCOUNT_ID) {
-  await connectToDatabase();
+  const db = await connectToDatabase();
+  if (!db) {
+    let account = inMemoryAccounts.get(accountId);
+    if (!account) {
+      account = {
+        accountId,
+        initialBalance: 10000,
+        balance: 10000,
+        equity: 10000,
+        totalFeesPaid: 0,
+        totalRealizedPnl: 0,
+        lastFundingTimestamp: Date.now()
+      };
+      inMemoryAccounts.set(accountId, account);
+    }
+    return account;
+  }
+
   let account = await PaperAccountModel.findOne({ accountId });
   if (!account) {
     account = await PaperAccountModel.create({
@@ -40,8 +63,35 @@ export async function getOrCreateAccount(accountId = DEFAULT_ACCOUNT_ID) {
  * Fetch complete account summary with active positions and orders.
  */
 export async function getPaperTradingSummary(accountId = DEFAULT_ACCOUNT_ID) {
-  await connectToDatabase();
+  const db = await connectToDatabase();
   const account = await getOrCreateAccount(accountId);
+
+  if (!db) {
+    const positions = inMemoryPositions.get(accountId) || [];
+    const openOrders = (inMemoryOrders.get(accountId) || []).filter((o: any) => o.status === 'PENDING');
+    const tradeLedger = inMemoryTrades.get(accountId) || [];
+
+    const totalUnrealizedPnl = positions.reduce((acc: number, p: any) => acc + (p.unrealizedPnl || 0), 0);
+    const totalMarginUsed = positions.reduce((acc: number, p: any) => acc + (p.initialMargin || 0), 0);
+    const equity = account.balance + totalUnrealizedPnl;
+    const freeMargin = Math.max(0, account.balance - totalMarginUsed);
+
+    return {
+      account: {
+        initialBalance: account.initialBalance,
+        balance: account.balance,
+        equity,
+        freeMargin,
+        totalMarginUsed,
+        totalFeesPaid: account.totalFeesPaid,
+        totalRealizedPnl: account.totalRealizedPnl
+      },
+      positions,
+      openOrders,
+      tradeLedger
+    };
+  }
+
   const positions = await PaperPositionModel.find({ accountId }).sort({ createdAt: -1 });
   const openOrders = await PaperOrderModel.find({ accountId, status: 'PENDING' }).sort({ createdAt: -1 });
   const tradeLedger = await PaperTradeModel.find({ accountId }).sort({ createdAt: -1 }).limit(50);
@@ -68,7 +118,7 @@ export async function getPaperTradingSummary(accountId = DEFAULT_ACCOUNT_ID) {
 }
 
 /**
- * Place a new Paper Order in MongoDB.
+ * Place a new Paper Order (MongoDB or in-memory fallback).
  */
 export async function placeOrderInDb(
   params: {
@@ -86,8 +136,41 @@ export async function placeOrderInDb(
   currentMarketPrice: number,
   accountId = DEFAULT_ACCOUNT_ID
 ) {
-  await connectToDatabase();
+  const db = await connectToDatabase();
   const account = await getOrCreateAccount(accountId);
+
+  // In-memory fast path when MongoDB is not connected
+  if (!db) {
+    const leverage = Math.max(1, Math.min(10, params.leverage || 1));
+    const rawPrice = params.type === 'MARKET' ? currentMarketPrice : params.price;
+    if (params.quantity <= 0 || rawPrice <= 0) throw new Error('Invalid order quantity or price.');
+    const notional = params.quantity * rawPrice;
+    const slippage = params.type === 'MARKET' ? calculateDynamicSlippage(notional) : 0;
+    const executedPrice = params.type === 'MARKET'
+      ? (params.side === 'BUY' ? rawPrice * (1 + slippage) : rawPrice * (1 - slippage))
+      : rawPrice;
+    const fee = notional * (params.type === 'MARKET' ? DEFAULT_TAKER_FEE_RATE : DEFAULT_MAKER_FEE_RATE);
+    const requiredMargin = notional / leverage;
+    const liqPrice = calculateLiquidationPrice(executedPrice, leverage, params.positionSide);
+    const orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const positionId = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const order = { orderId, accountId, symbol: params.symbol.toUpperCase(), side: params.side, type: params.type, positionSide: params.positionSide, price: rawPrice, quantity: params.quantity, leverage, status: params.type === 'MARKET' ? 'FILLED' : 'PENDING', stopLoss: params.stopLoss, takeProfit: params.takeProfit, trailingStopDistance: params.trailingStopDistance, fee, slippage, timestamp: Date.now() };
+    const orders = inMemoryOrders.get(accountId) || [];
+    orders.push(order);
+    inMemoryOrders.set(accountId, orders);
+
+    if (params.type === 'LIMIT') return { order, position: null };
+
+    const position = { positionId, accountId, symbol: params.symbol.toUpperCase(), side: params.positionSide, entryPrice: executedPrice, markPrice: currentMarketPrice, quantity: params.quantity, notionalValue: notional, leverage, initialMargin: requiredMargin, maintenanceMargin: requiredMargin * MAINTENANCE_MARGIN_RATE * leverage, unrealizedPnl: 0, unrealizedPnlPct: 0, liquidationPrice: liqPrice, stopLoss: params.stopLoss, takeProfit: params.takeProfit, trailingStopDistance: params.trailingStopDistance, highestPriceSinceEntry: executedPrice, lowestPriceSinceEntry: executedPrice, openTimestamp: Date.now(), totalFundingPaid: 0 };
+    const positions = inMemoryPositions.get(accountId) || [];
+    positions.push(position);
+    inMemoryPositions.set(accountId, positions);
+
+    account.balance -= fee;
+    account.totalFeesPaid += fee;
+    return { order, position };
+  }
   const leverage = Math.max(1, Math.min(10, params.leverage || 1));
   const rawPrice = params.type === 'MARKET' ? currentMarketPrice : params.price;
 

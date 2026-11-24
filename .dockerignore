@@ -1,0 +1,53 @@
+# ============================================
+# Quant Trading System - Docker Ignore
+# ============================================
+
+# Dependencies (rebuilt in container)
+node_modules
+__pycache__
+
+# Build output (rebuilt in container)
+dist
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Environment files (secrets)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (keep README)
+*.md
+!README.md
+
+# Tests & Coverage
+tests/
+coverage/
+jest.config.*
+vitest.config.*
+
+# CI/CD
+.github/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker files (avoid recursive context)
+docker-compose.yml
+Dockerfile*
+.dockerignore
