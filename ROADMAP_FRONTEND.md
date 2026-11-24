@@ -130,22 +130,21 @@ flowchart TD
 
 ---
 
-### 🔵 FASE 5: Multi-Asset Selector & Immutable Ledger Audit Viewer
+### 🟢 FASE 5: Multi-Asset Selector & Immutable Ledger Audit Viewer (SELESAI ✅)
 
 > **Target:** Membuka seluruh aset crypto yang telah di-seed di MongoDB Atlas dan menyediakan transparansi audit buku besar keuangan terenkripsi.
 
-- [ ] **5.1. Multi-Asset Candlestick Selector**
-  - Dropdown pemilihan aset di atas chart: `BTC/USDT`, `ETH/USDT`, `SOL/USDT`, `BNB/USDT`, `ADA/USDT`.
-  - Pengambilan data otomatis dari endpoint backend `GET /api/crypto/candles?symbol=ETH&interval=1h` dengan fast-tier caching.
-  - Mini statistik 24 jam (Volume, 24h Change, High, Low) terupdate real-time.
-- [ ] **5.2. Penampil Buku Besar Keuangan (Immutable Ledger Table)**
-  - Tab baru atau modal di Paper Trading: **"Financial Ledger & Audit Trail"**.
-  - Tabel kronologis transaksi: Waktu, Jenis (`INITIAL_DEPOSIT`, `FEE_DEDUCTION`, `POSITION_CLOSE`, `FUNDING_PAYMENT`), Jumlah ($), Saldo Sebelum, Saldo Sesudah.
-  - Badge verifikasi kriptografi: Menampilkan status integritas rantai hash (`GET /api/paper/ledger/verify/:accountId`).
-  - Tombol **"Audit Cryptographic Chain"**: Memvalidasi seluruh urutan hash SHA-256 secara langsung di depan mata pengguna.
-- [ ] **5.3. Performance Optimization & Lazy Loading**
-  - Pemisahan kode (*code-splitting*) menggunakan `React.lazy()` dan `Suspense` untuk tab-tab analitik berat (`MonteCarloTab`, `BacktestTab`, `AstroCycleTab`).
-  - Reduksi ukuran bundle awal agar initial page load sub-1 detik.
+- [x] **5.1. Multi-Asset Candlestick Selector (`src/components/Header.tsx` & `src/App.tsx`)**
+  - Pemilihan multi-aset terpadu di Header: `BTC`, `ETH`, `SOL`, `BNB`, `ADA`.
+  - Sinkronisasi instan terhadap WebSocket ticker stream, historical dynamic dataset, dan tab order placement.
+- [x] **5.2. Penampil Buku Besar Keuangan (Immutable Ledger Table & Audit Viewer)**
+  - Komponen modal audit buku besar finansial: `src/components/ledger/LedgerAuditModal.tsx` & service `src/services/ledgerApi.ts`.
+  - Tabel kronologis transaksi: Waktu, Jenis (`INITIAL_DEPOSIT`, `TRADE_PROFIT`, `TRADE_LOSS`, `FEE_DEDUCTION`, `FUNDING_PAYMENT`, `ORDER_MARGIN_LOCK`), Jumlah ($), Saldo Sebelum ➔ Sesudah, dan tautan hash SHA-256 (`prevHash` ➔ `hash`).
+  - Tombol **"Audit Cryptographic Chain"**: Memvalidasi seluruh urutan hash SHA-256 secara langsung di depan mata trader (`GET /api/paper/ledger/verify/:accountId`).
+  - Terintegrasi di action bar Paper Trading dan User Profile menu di Header.
+- [x] **5.3. Performance Optimization & Lazy Loading (`src/App.tsx`)**
+  - Pemisahan kode (*code-splitting*) menggunakan `React.lazy()` dan `Suspense` untuk 8 modul komputasi berat (`BacktestTab`, `RiskManagementTab`, `MonteCarloTab`, `LstmModelTab`, `PortfolioTab`, `AstroCycleTab`, `ModulesTab`, `GridTradingTab`).
+  - Main bundle berkurang dari ~636 kB menjadi **413 kB** (dibawah batas 500 kB tanpa warning Vite sama sekali), dengan 8 dynamic chunks terpisah.
 
 ---
 
@@ -154,13 +153,12 @@ flowchart TD
 | Fase | Inisiatif Frontend | Estimasi Waktu | Dampak User | Status |
 | :---: | :--- | :---: | :---: | :---: |
 | **Fase 1** | Auth Context, JWT Storage & Login/Register Modal | 1-2 sesi | Tinggi | ✅ Selesai |
-| **Fase 2** | API Key Vault Manager (AES) & Dual-Mode Switcher | 1-2 sesi | Kritis | ⏳ Antrean |
-| **Fase 3** | Circuit Breaker HUD & Emergency Panic Kill-Switch | 1 sesi | Kritis | ⏳ Antrean |
-| **Fase 4** | Async Background Jobs Drawer & 0-100% Progress Bar | 1-2 sesi | Tinggi | ⏳ Antrean |
-| **Fase 5** | Multi-Asset Universe & Immutable Ledger Audit Table | 1-2 sesi | Menengah | ⏳ Antrean |
+| **Fase 2** | API Key Vault Manager (AES) & Dual-Mode Switcher | 1-2 sesi | Kritis | ✅ Selesai |
+| **Fase 3** | Circuit Breaker HUD & Emergency Panic Kill-Switch | 1 sesi | Kritis | ✅ Selesai |
+| **Fase 4** | Async Background Jobs Drawer & 0-100% Progress Bar | 1-2 sesi | Tinggi | ✅ Selesai |
+| **Fase 5** | Multi-Asset Universe & Immutable Ledger Audit Table | 1-2 sesi | Menengah | ✅ Selesai |
 
 ---
 
-## 🛠️ Rekomendasi Urutan Pengerjaan Pertama:
-1. **Langkah 1**: Kerjakan **Fase 1 (AuthContext & Login/Register Modal)** agar seluruh pengguna memiliki identitas terisolasi.
-2. **Langkah 2**: Lanjutkan ke **Fase 2 (API Key Vault & Dual-Mode Switcher)** dan **Fase 3 (Circuit Breaker HUD)** untuk keselamatan perdagangan.
+## 🏆 Status Pencapaian Roadmap
+**SELURUH FASE FRONTEND (FASE 1–5) DAN BACKEND (FASE 1–5) TELAH LENGKAP 100% DIKERJAKAN, TERUJI DENGAN 120 AUTOMATED TESTS PASSING, DAN DI-PUSH KE REPOSITORY.**

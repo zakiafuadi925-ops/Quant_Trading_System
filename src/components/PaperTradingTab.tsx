@@ -20,11 +20,13 @@ import {
   ExternalLink,
   Database,
   Zap,
-  KeyRound
+  KeyRound,
+  Link2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { submitLiveOrder, fetchVaultKeys, VaultKeyItem } from '../services/exchangeApi';
 import { LiveOrderConfirmModal, LiveOrderDetails } from './vault/LiveOrderConfirmModal';
+import { LedgerAuditModal } from './ledger/LedgerAuditModal';
 import { CandleData } from '../types';
 import { SUPPORTED_SYMBOLS } from '../services/cryptoApi';
 import {
@@ -95,6 +97,7 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
   
   // Live Trading Engine State
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState<boolean>(false);
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState<boolean>(false);
   const [isLiveExecuting, setIsLiveExecuting] = useState<boolean>(false);
   const [pendingLiveOrder, setPendingLiveOrder] = useState<LiveOrderDetails | null>(null);
   const [activeVaultKey, setActiveVaultKey] = useState<VaultKeyItem | null>(null);
@@ -506,10 +509,19 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={() => setIsWebhookModalOpen(true)}
-            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm"
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
           >
             <Bell className="w-4 h-4 text-amber-400" />
             Alerts &amp; Webhooks
+          </button>
+
+          <button
+            onClick={() => setIsLedgerModalOpen(true)}
+            className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            title="Inspect cryptographically chained immutable transaction ledger"
+          >
+            <Link2 className="w-4 h-4 text-cyan-400" />
+            Audit Ledger
           </button>
 
           <button
@@ -1279,6 +1291,12 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
         orderDetails={pendingLiveOrder}
         activeKey={activeVaultKey}
         isExecuting={isLiveExecuting}
+      />
+
+      {/* Immutable Financial Ledger Audit Modal */}
+      <LedgerAuditModal
+        isOpen={isLedgerModalOpen}
+        onClose={() => setIsLedgerModalOpen(false)}
       />
     </div>
   );

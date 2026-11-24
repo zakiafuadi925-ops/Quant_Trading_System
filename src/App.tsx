@@ -1,15 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { Header } from "./components/Header";
 import { Navbar } from "./components/Navbar";
 import { useAppRouter } from "./hooks/useAppRouter";
-import { BacktestTab } from "./components/BacktestTab";
-import { AstroCycleTab } from "./components/AstroCycleTab";
-import { LstmModelTab } from "./components/LstmModelTab";
-import { MonteCarloTab } from "./components/MonteCarloTab";
-import { PortfolioTab } from "./components/PortfolioTab";
-import { GridTradingTab } from "./components/GridTradingTab";
-import { ModulesTab } from "./components/ModulesTab";
-import { RiskManagementTab } from "./components/RiskManagementTab";
 import { PaperTradingTab } from "./components/PaperTradingTab";
 import { LiveFeedModal } from "./components/LiveFeedModal";
 import { BTC_CANDLES } from "./data/historicalData";
@@ -25,6 +17,7 @@ import { AuthModal } from "./components/auth/AuthModal";
 import { ApiKeyVaultModal } from "./components/vault/ApiKeyVaultModal";
 import { CircuitBreakerModal } from "./components/circuitBreaker/CircuitBreakerModal";
 import { JobProgressDrawer } from "./components/jobs/JobProgressDrawer";
+import { LedgerAuditModal } from "./components/ledger/LedgerAuditModal";
 import { CircuitBreakerState, fetchCircuitBreaker } from "./services/exchangeApi";
 import {
   Sparkles,
@@ -35,7 +28,44 @@ import {
   Database,
   Clock,
   Coins,
+  RefreshCw,
 } from "lucide-react";
+
+// Code-splitting via dynamic imports for heavy compute & chart tabs
+const BacktestTab = lazy(() =>
+  import("./components/BacktestTab").then((m) => ({ default: m.BacktestTab }))
+);
+const AstroCycleTab = lazy(() =>
+  import("./components/AstroCycleTab").then((m) => ({ default: m.AstroCycleTab }))
+);
+const LstmModelTab = lazy(() =>
+  import("./components/LstmModelTab").then((m) => ({ default: m.LstmModelTab }))
+);
+const MonteCarloTab = lazy(() =>
+  import("./components/MonteCarloTab").then((m) => ({ default: m.MonteCarloTab }))
+);
+const PortfolioTab = lazy(() =>
+  import("./components/PortfolioTab").then((m) => ({ default: m.PortfolioTab }))
+);
+const GridTradingTab = lazy(() =>
+  import("./components/GridTradingTab").then((m) => ({ default: m.GridTradingTab }))
+);
+const ModulesTab = lazy(() =>
+  import("./components/ModulesTab").then((m) => ({ default: m.ModulesTab }))
+);
+const RiskManagementTab = lazy(() =>
+  import("./components/RiskManagementTab").then((m) => ({ default: m.RiskManagementTab }))
+);
+
+function TabLoadingFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center p-20 space-y-3 bg-slate-900/40 rounded-2xl border border-slate-800 text-center animate-pulse">
+      <RefreshCw className="w-8 h-8 animate-spin text-amber-400" />
+      <div className="text-xs font-mono font-bold text-white">Loading Quantitative Engine...</div>
+      <div className="text-[11px] text-slate-500 font-mono">Dynamic chunk hydration in progress</div>
+    </div>
+  );
+}
 
 function AppContent() {
   const { activeTab, navigate: handleTabChange } = useAppRouter();
@@ -44,6 +74,7 @@ function AppContent() {
   const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
   const [isCircuitBreakerModalOpen, setIsCircuitBreakerModalOpen] = useState<boolean>(false);
   const [isJobDrawerOpen, setIsJobDrawerOpen] = useState<boolean>(false);
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState<boolean>(false);
   const [circuitBreaker, setCircuitBreaker] = useState<CircuitBreakerState | null>(null);
   const [tradingMode, setTradingMode] = useState<"paper" | "live">("paper");
   const [selectedVaultKeyId, setSelectedVaultKeyId] = useState<string | undefined>(undefined);
@@ -227,6 +258,7 @@ function AppContent() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenVaultModal={() => setIsVaultModalOpen(true)}
         onOpenCircuitBreakerModal={() => setIsCircuitBreakerModalOpen(true)}
+        onOpenLedgerModal={() => setIsLedgerModalOpen(true)}
         circuitBreaker={circuitBreaker}
         tradingMode={tradingMode}
         onTradingModeChange={setTradingMode}
@@ -248,46 +280,48 @@ function AppContent() {
         onTimeframeChange={handleTimeframeChange}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content Area with Code-Splitting Suspense */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 tab-panel-container">
-        {activeTab === "overview" && (
-          <BacktestTab
-            candles={candles}
-            currentPrice={ticker.price}
-            timeframe={timeframe}
-            onTimeframeChange={handleTimeframeChange}
-            isLoadingCandles={isLoadingCandles}
-            symbol={selectedSymbol}
-            onSymbolChange={handleSymbolChange}
-          />
-        )}
-        {activeTab === "paper-trading" && (
-          <PaperTradingTab
-            candles={candles}
-            currentPrice={ticker.price}
-            symbol={selectedSymbol}
-            onSymbolChange={handleSymbolChange}
-            tradingMode={tradingMode}
-            selectedKeyId={selectedVaultKeyId}
-            onOpenVaultModal={() => setIsVaultModalOpen(true)}
-          />
-        )}
-        {activeTab === "risk" && (
-          <RiskManagementTab candles={candles} currentPrice={ticker.price} />
-        )}
-        {activeTab === "astronacci" && <AstroCycleTab candles={candles} />}
-        {activeTab === "lstm" && <LstmModelTab candles={candles} />}
-        {activeTab === "monte-carlo" && (
-          <MonteCarloTab
-            currentBtcPrice={ticker.price}
-            onOpenJobDrawer={() => setIsJobDrawerOpen(true)}
-          />
-        )}
-        {activeTab === "portfolio" && <PortfolioTab btcPrice={ticker.price} />}
-        {activeTab === "grid" && <GridTradingTab initialPrice={ticker.price} />}
-        {activeTab === "modules" && (
-          <ModulesTab candles={candles} currentPrice={ticker.price} />
-        )}
+        <Suspense fallback={<TabLoadingFallback />}>
+          {activeTab === "overview" && (
+            <BacktestTab
+              candles={candles}
+              currentPrice={ticker.price}
+              timeframe={timeframe}
+              onTimeframeChange={handleTimeframeChange}
+              isLoadingCandles={isLoadingCandles}
+              symbol={selectedSymbol}
+              onSymbolChange={handleSymbolChange}
+            />
+          )}
+          {activeTab === "paper-trading" && (
+            <PaperTradingTab
+              candles={candles}
+              currentPrice={ticker.price}
+              symbol={selectedSymbol}
+              onSymbolChange={handleSymbolChange}
+              tradingMode={tradingMode}
+              selectedKeyId={selectedVaultKeyId}
+              onOpenVaultModal={() => setIsVaultModalOpen(true)}
+            />
+          )}
+          {activeTab === "risk" && (
+            <RiskManagementTab candles={candles} currentPrice={ticker.price} />
+          )}
+          {activeTab === "astronacci" && <AstroCycleTab candles={candles} />}
+          {activeTab === "lstm" && <LstmModelTab candles={candles} />}
+          {activeTab === "monte-carlo" && (
+            <MonteCarloTab
+              currentBtcPrice={ticker.price}
+              onOpenJobDrawer={() => setIsJobDrawerOpen(true)}
+            />
+          )}
+          {activeTab === "portfolio" && <PortfolioTab btcPrice={ticker.price} />}
+          {activeTab === "grid" && <GridTradingTab initialPrice={ticker.price} />}
+          {activeTab === "modules" && (
+            <ModulesTab candles={candles} currentPrice={ticker.price} />
+          )}
+        </Suspense>
       </main>
 
       {/* Live Data Configuration Modal */}
@@ -372,6 +406,12 @@ function AppContent() {
       <JobProgressDrawer
         isOpen={isJobDrawerOpen}
         onToggle={() => setIsJobDrawerOpen(!isJobDrawerOpen)}
+      />
+
+      {/* Immutable Financial Ledger Audit Modal */}
+      <LedgerAuditModal
+        isOpen={isLedgerModalOpen}
+        onClose={() => setIsLedgerModalOpen(false)}
       />
     </div>
   );

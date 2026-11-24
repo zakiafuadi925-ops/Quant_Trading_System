@@ -7,7 +7,8 @@ import {
   LogOut,
   Wallet,
   ChevronDown,
-  KeyRound
+  KeyRound,
+  Link2
 } from 'lucide-react';
 import { WsStatus } from '../services/binanceWs';
 import { LiveTicker, SUPPORTED_SYMBOLS } from '../services/cryptoApi';
@@ -22,6 +23,7 @@ export interface HeaderProps {
   onOpenAuthModal?: () => void;
   onOpenVaultModal?: () => void;
   onOpenCircuitBreakerModal?: () => void;
+  onOpenLedgerModal?: () => void;
   circuitBreaker?: CircuitBreakerState | null;
   tradingMode?: 'paper' | 'live';
   onTradingModeChange?: (mode: 'paper' | 'live') => void;
@@ -41,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuthModal,
   onOpenVaultModal,
   onOpenCircuitBreakerModal,
+  onOpenLedgerModal,
   circuitBreaker,
   tradingMode = 'paper',
   onTradingModeChange,
@@ -352,6 +355,20 @@ export const Header: React.FC<HeaderProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* Financial Ledger Audit Shortcut */}
+                    {onOpenLedgerModal && (
+                      <button
+                        onClick={() => {
+                          onOpenLedgerModal();
+                          setIsProfileDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/20 text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        <Link2 className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Audit Financial Ledger</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => {
